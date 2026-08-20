@@ -1,0 +1,11 @@
+# Continuous WAL replication of the prod SQLite DB to a Fly Tigris bucket.
+# Credentials + bucket name come from the app secrets that
+# `fly storage create woolroom-litestream` sets (AWS_* + BUCKET_NAME).
+dbs:
+  - path: /data/woolroom.db
+    replicas:
+      - type: s3
+        bucket: ${BUCKET_NAME}
+        path: woolroom.db
+        endpoint: ${AWS_ENDPOINT_URL_S3}
+        region: ${AWS_REGION}

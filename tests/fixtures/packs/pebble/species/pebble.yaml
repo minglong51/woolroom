@@ -1,0 +1,24 @@
+# A deliberately-minimal fixture species: a pet rock. One coat, one geometry
+# frame, just enough to prove the pack loader's gates and registration.
+temperament:
+  breed_archetype: "garden pebble"
+  description: "A smooth gray stone. Warm the way a windowsill is warm."
+  traits:
+    warmth_baseline: "low"
+    sociability: "minimal"
+    energy: "geological"
+    curiosity: "none"
+    expressiveness: "stillness"
+    stubbornness: "absolute"
+  ignore_rate: 0.9
+pronoun: it
+coats:
+  gray:
+    body: "#9a9a94"
+    belly: "#cfcfc8"
+    point: "#77776f"
+geometry:
+  earBelow: 400
+  headBelow: 408
+  tail: {yAbove: 444, xAbove: 238}
+  belly: {yAbove: 416, xAbove: 180, xBelow: 220}

@@ -1,0 +1,31 @@
+# Tiny overlay: most cells fall through to the shared tables by design —
+# EXCEPT tiny, which the engine swaps whole (no per-cell fall-through), so
+# all three valence buckets are pinned here, each with a speakable
+# (non-asterisk) line.
+# `language` is the v1 language axis (default "en").
+language: en
+body:
+  low:
+    content:
+      - "*does nothing, beautifully*"
+      - "*radiates mineral calm*"
+action:
+  pet:
+    med:
+      content:
+        - "*accepts the pat, geologically*"
+spot:
+  head:
+    low:
+      content:
+        - "*has no head; accepts the pat anyway*"
+tiny:
+  grumpy:
+    - "..."
+    - "*does nothing, pointedly*"
+  neutral:
+    - "..."
+    - "*continues being a rock*"
+  content:
+    - "..."
+    - "*companionable silence*"

@@ -1,0 +1,49 @@
+# fly.toml for woolroom — template. Create the app + volume first:
+#   fly apps create woolroom
+#   fly volumes create woolroom_data --region sjc --size 1
+#   fly storage create woolroom-litestream   # Tigris bucket for litestream
+# See https://fly.io/docs/reference/configuration/ for the config reference.
+
+app = 'woolroom'
+primary_region = 'sjc'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  DATABASE_URL = 'sqlite+aiosqlite:////data/woolroom.db'
+  ENV = 'prod'
+  LLM_PROVIDER = 'anthropic'
+  LOG_LEVEL = 'info'
+
+[[mounts]]
+  source = 'woolroom_data'
+  destination = '/data'
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = 'requests'
+    hard_limit = 100
+    soft_limit = 50
+
+[[http_service.checks]]
+  grace_period = '30s'
+  interval = '15s'
+  method = 'GET'
+  timeout = '2s'
+  path = '/healthz'
+  protocol = 'http'
+
+  [http_service.checks.headers]
+    X-Forwarded-Proto = 'https'
+
+[[vm]]
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 512
