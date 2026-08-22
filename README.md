@@ -117,6 +117,9 @@ never code: no scripting, no CSS, no runtime download.
 - The authoring guide is [docs/packs.md](docs/packs.md).
 - [packs/pebble](packs/pebble) is the shipped example — a pet rock,
   deliberately minimal.
+- `scripts/pack_new.py <species-id>` starts yours: copies the example with
+  every file stem already renamed to your id (stems are ids — a bare copy
+  collides at boot).
 - `scripts/pack_render.py <pack-dir>` draws the review board (every coat in
   every pose, plus the touch-hitbox overlay); `scripts/pack_lint.py
   <pack-dir>` runs the contract suite. If lint is green and the render board

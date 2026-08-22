@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-08-22 (trust seams: gate-over-default-secret refusal, auth-failure throttle, security headers, fail-closed LLM cap)
+**Refreshed:** 2026-08-22 (pack_new scaffolder; earlier today: trust seams, first-run bootstrap, sanitizer DTD gate)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -185,6 +185,11 @@ carry no independent contract.
 
 ## `scripts/` — operator and authoring CLIs
 
+- `pack_new.py` — scaffolds a pack: copies the example (default
+  `packs/pebble`) with the species stems renamed to the new id and the
+  manifest's `name`/`author`/`license` rewritten in place. Exists because
+  ids come from file stems, so a bare `cp -r` produces a
+  `PackCollisionError` at boot.
 - `pack_lint.py` — CLI over `app/packs/lint.py`; exit 1 on ERROR (and on
   WARN with `--strict` — registry-CI mode).
 - `pack_render.py` — emits one self-contained HTML review board: coats ×
