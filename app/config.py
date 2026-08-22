@@ -20,8 +20,10 @@ class Settings(BaseSettings):
     log_level: str = "info"
     env: str = "dev"
 
-    # LLM provider: "anthropic" (Claude Haiku via cloud) or "ollama" (local).
-    llm_provider: str = "anthropic"
+    # LLM provider: "disabled" (phrasebook only — the shipped default, so
+    # "zero inference spend by default" is literal), "anthropic" (Claude
+    # Haiku via cloud), or "ollama" (local).
+    llm_provider: str = "disabled"
     llm_model: str = "claude-haiku-4-5-20251001"
     llm_max_tokens: int = 80
     llm_timeout_s: float = 8.0
