@@ -506,6 +506,17 @@ def test_start_without_pending_invite_is_rejected_in_invite_only_mode(
         assert resp.status_code == 403
 
 
+def test_api_me_reports_effective_signup_openness(tmp_path: Path, monkeypatch) -> None:
+    app = _load_app(tmp_path, monkeypatch, open_signup=False)
+    with TestClient(app) as client:
+        # Fresh DB: the landing page must show the begin form, so /api/me
+        # mirrors the /api/start bootstrap.
+        assert client.get("/api/me").json()["open_signup"] is True
+        assert client.post("/api/start", json={"display_name": "Ash"}).status_code == 200
+        client.cookies.clear()
+        assert client.get("/api/me").json()["open_signup"] is False
+
+
 def test_start_via_invite_works_in_invite_only_mode(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -726,6 +737,22 @@ def test_site_access_gate_requires_password_before_app_session(tmp_path: Path, m
         landing = client.get("/")
         assert landing.status_code == 200
         assert "woolroom" in landing.text.lower()
+
+
+def test_site_access_throttles_failures_per_ip(tmp_path: Path, monkeypatch) -> None:
+    app = _load_app(tmp_path, monkeypatch, site_password="open sesame")
+
+    with TestClient(app) as client:
+        # Successes never count against the bucket.
+        assert client.post("/api/site-access", json={"password": "open sesame"}).status_code == 200
+        codes = [
+            client.post("/api/site-access", json={"password": f"wrong{i}"}).status_code
+            for i in range(7)
+        ]
+        assert codes == [401] * 5 + [429, 429]
+        # Once tripped, even the right password waits out the window — the
+        # throttle is on attempts, not on wrongness.
+        assert client.post("/api/site-access", json={"password": "open sesame"}).status_code == 429
 
 
 def test_site_access_cookie_persists_for_private_flow(tmp_path: Path, monkeypatch) -> None:

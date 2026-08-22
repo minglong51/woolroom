@@ -406,6 +406,32 @@ def test_svg_root_must_be_a_fragment(tmp_path: Path) -> None:
         load_pack(pack)
 
 
+def test_svg_dtd_and_entities_are_refused_before_parse(tmp_path: Path) -> None:
+    # Entity expansion is a memory bomb that stays inside the byte caps:
+    # a few hundred input bytes can expand to megabytes. The gate refuses
+    # any DTD before the parser ever sees it.
+    pack = _copy_pack(tmp_path)
+    _write(
+        pack,
+        "species/pebble.svg",
+        '<!DOCTYPE g [<!ENTITY a "aaaaaaaaaa">'
+        '<!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">'
+        '<!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;">]>'
+        "<g><title>&c;&c;</title></g>",
+    )
+    with pytest.raises(PackSvgError, match="carries a DTD"):
+        load_pack(pack)
+
+
+def test_svg_deep_nesting_is_a_named_refusal(tmp_path: Path) -> None:
+    # Over-deep nesting must surface as the gate's named error, never as a
+    # RecursionError escaping the one-named-error-per-gate contract.
+    pack = _copy_pack(tmp_path)
+    _write(pack, "species/pebble.svg", "<g>" * 5000 + "</g>" * 5000)
+    with pytest.raises(PackSvgError, match="nests too deeply"):
+        load_pack(pack)
+
+
 def test_sanitize_svg_unit() -> None:
     assert sanitize_svg("<g><circle r='1'/></g>") == '<g><circle r="1" /></g>'
     with pytest.raises(SvgSanitizeError):
