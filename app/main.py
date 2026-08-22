@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import text as _text
 
+from app.api.admin import router as admin_router
 from app.api.http import router as http_router
 from app.api.ws import router as ws_router
 from app.auth.site_access import (
@@ -296,6 +297,7 @@ def create_app() -> FastAPI:
 
     app.include_router(http_router)
     app.include_router(ws_router)
+    app.include_router(admin_router)
 
     # Serve the scene. Two cache policies, chosen per request:
     #  - `?v=<APP_VERSION>` present and current → `immutable` for a year. The

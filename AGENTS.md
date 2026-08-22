@@ -27,8 +27,9 @@ does not belong in the suite.
   interpreter — pure deterministic logic), `runtime/` (respond pipeline,
   prompt, validator, scene fx), `data/` (phrase/voice/species/quirk base
   tables — content modules), `packs/` (loader, sanitizer, lint), `api/`
-  (REST + WebSocket), `channels/`, `memory/`, `scheduler/`, `storage/`,
-  `auth/`, `static/` (the room client), `config.py`, `room_contract.py`.
+  (REST + WebSocket + token-gated admin), `channels/`, `memory/`,
+  `scheduler/`, `storage/`, `auth/`, `static/` (the room client),
+  `config.py`, `room_contract.py`.
 - `packs/pebble/` — the shipped example content pack (pack format v1).
 - `scripts/` — operator/authoring CLIs: `pack_lint.py`, `pack_render.py`,
   `migrate.py`, `eval.py`, `seed_demo_pet.py`, `denylist_check.py`,
