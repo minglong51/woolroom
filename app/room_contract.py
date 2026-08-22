@@ -79,3 +79,14 @@ TRACE_CUE_MAP: dict[str, dict[str, str]] = {
     "message": {"mode": "phone_glow", "anchor": "floor"},
     "play": {"mode": "rumpled_rug", "anchor": "rug"},
 }
+
+# The quirk `events` channel broadcasts `{type, **data}` verbatim to every
+# socket in the room (scheduler/jobs.py) — the same wire the protocol's own
+# frames (`pet_state`, `presence`, ...) ride. An open type string would let
+# a content pack spoof protocol frames, which is the one way "packs are
+# data, never code" could leak; so emit types are vocabulary, exactly like
+# fx modes: unknown types are loader errors, and growing this dict is an
+# engine change, never a pack change.
+QUIRK_EMIT_TYPES: dict[str, str] = {
+    "response": "a line the room shows as the pet responding (text, is_utterance)",
+}
