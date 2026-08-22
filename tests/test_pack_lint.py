@@ -1,8 +1,9 @@
 """pack lint contract tests (woolroom Phase 1d, pack format v1).
 
 Covers `app/packs/lint.py` + `scripts/pack_lint.py`: the shipped example
-pack lints with only its deliberate rig-extras WARN, the minimal fixture
-behaves the same, the
+pack lints strict-clean (it is the gold standard the submission bar asks
+of external packs), the minimal fixture keeps the deliberate rig-extras
+WARN to exercise that path, the
 rig-contract ERRORs (a figure missing `#dog-eyes` breaks poses in the
 room), the sanitizer-drop WARN (cross-checked against the sanitizer's real
 output so the mirror never drifts), the tiny-table ERROR (the one phrase
@@ -92,15 +93,14 @@ def _finding(report, check: str):
 # ────────── the shipped + fixture packs ──────────
 
 
-def test_shipped_pebble_lints_with_only_the_rig_extras_warning() -> None:
+def test_shipped_pebble_lints_strict_clean() -> None:
     report = lint_pack(SHIPPED_PACK)
     assert report.exit_code() == 0
     assert report.count(ERROR) == 0
-    # The shipped example is deliberately minimal — a rock has no brush
-    # strokes to draw — so its one WARN is the rig's optional layers.
-    (warning,) = [f for f in report.findings if f.severity == WARN]
-    assert warning.check == "rig extras [pebble]"
-    assert report.exit_code(strict=True) == 1
+    # The shipped example is the gold standard: it must clear the same
+    # --strict bar the submission flow asks of external packs.
+    assert report.count(WARN) == 0
+    assert report.exit_code(strict=True) == 0
     assert (report.name, report.version) == ("pebble", "0.1.0")
 
 
@@ -306,8 +306,8 @@ def test_cli_reports_and_exit_codes(tmp_path: Path, capsys) -> None:
     assert pack_lint.main([str(SHIPPED_PACK)]) == 0
     out = capsys.readouterr().out
     assert "PASS  load — pebble v0.1.0" in out
-    assert "12 PASS · 1 WARN · 0 ERROR — lints, with warnings" in out
-    assert pack_lint.main([str(SHIPPED_PACK), "--strict"]) == 1
+    assert "13 PASS · 0 WARN · 0 ERROR — lints clean" in out
+    assert pack_lint.main([str(SHIPPED_PACK), "--strict"]) == 0
 
     pack = _copy_pack(tmp_path)
     assert pack_lint.main([str(pack)]) == 0
