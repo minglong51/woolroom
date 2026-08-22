@@ -58,6 +58,7 @@ The repo ships a ready template — `fly.toml`, `Dockerfile`, and
 fly apps create woolroom
 fly volumes create woolroom_data --region sjc --size 1
 fly storage create woolroom-litestream
+fly secrets set SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
 fly deploy
 ```
 

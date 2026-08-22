@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-08-20 (first public baseline)
+**Refreshed:** 2026-08-22 (first-run bootstrap, sanitizer DTD gate, entrypoint pre-flight)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -98,7 +98,9 @@ code is right and this doc is stale.
   nothing. Exposes `LOADED_PACKS`, `PACK_ASSETS`, `client_pack_assets()`.
 - `sanitize.py` — allowlist-only SVG sanitizer, stdlib only: elements
   outside the allowed set dropped with subtree; `on*`, `href`, and
-  `style` with `url(` stripped; root must be one `<g>`/`<svg>`.
+  `style` with `url(` stripped; root must be one `<g>`/`<svg>`;
+  DTD/entity declarations refused before parse (entity-expansion memory
+  bomb) and over-deep nesting refused — both as named `SvgSanitizeError`s.
 - `lint.py` — authoring-side checker (`PASS|WARN|ERROR` findings +
   `exit_code(strict)`): runs the real loader first, then rig class/eye
   state/palette contracts, stray ids, sanitizer-drop mirror, geometry
@@ -113,7 +115,10 @@ code is right and this doc is stale.
   `/r/{token}` recovery), `/api/action` (the interaction verb),
   `/api/visit(+end)`, aliases/coat, memory pin/unseen/read, guest
   `/api/guest/scene`, `/admin/*` (token-gated: users, merge, delete,
-  recovery, llm stats).
+  recovery, llm stats). Signup is invite-only (`OPEN_SIGNUP` off) with one
+  designed exception: an empty users table admits the first human — a fresh
+  deployment is otherwise unreachable — then the gate closes itself.
+  `/api/me` reports the same effective openness.
 - `api/ws.py` — `/ws` scene socket: initial `pet_state` push, then
   `pet_state`/`presence` messages; cookie-authed.
 - `api/deps.py` — session-cookie user/pet dependencies.
@@ -177,7 +182,9 @@ carry no independent contract.
   loader.
 - `migrate.py` — `alembic upgrade head` (container startup).
 - `docker-entrypoint.sh` — container boot: litestream restore + replicate
-  only when `BUCKET_NAME` is set, migrate, single-worker uvicorn.
+  only when `BUCKET_NAME` is set, config pre-flight (a settings refusal
+  prints a one-line remedy instead of a raw validation traceback),
+  migrate, single-worker uvicorn.
 - `seed_demo_pet.py` — creates the read-only guest-mode demo pet
   (idempotent) and prints its id for `GUEST_PET_ID`.
 - `eval.py` — eval harness CLI: `run` / `diff` / `sessions`.
@@ -185,7 +192,7 @@ carry no independent contract.
   identifiers (whole-word patterns, Tailscale IP range, private timezone);
   exit 1 with `file:line` on any hit.
 - `backup.sh` — pulls the live SQLite DB off the fly machine to local
-  storage.
+  storage; exits nonzero unless `PRAGMA quick_check` returns `ok`.
 - `smoke-browse.sh` — optional headless visual smoke (requires a locally
   installed browse daemon; not part of CI).
 

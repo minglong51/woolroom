@@ -50,6 +50,9 @@ import sqlite3, sys
 c = sqlite3.connect("$OUT")
 tables = sorted(r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'"))
 print(f"[backup] tables in pulled DB: {tables}")
-c.execute("PRAGMA quick_check").fetchone()
+rows = c.execute("PRAGMA quick_check").fetchall()
+if rows != [("ok",)]:
+    print(f"[backup] INTEGRITY CHECK FAILED: {rows}", file=sys.stderr)
+    sys.exit(1)
 print("[backup] integrity check ok")
 PYEOF

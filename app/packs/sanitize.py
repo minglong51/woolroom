@@ -11,7 +11,10 @@ through an allowlist sanitizer at load:
 - attributes: every `on*` event handler, every `href`/`xlink:href`, and any
   `style` containing `url(` is stripped;
 - the root must be a single `<g>` (the pack contract's figure fragment) or
-  `<svg>`; unparseable input is rejected.
+  `<svg>`; unparseable input is rejected;
+- DTD/entity declarations are refused before parse (entity expansion is a
+  memory bomb — 338 bytes can expand to megabytes inside the byte caps),
+  and over-deep nesting is refused rather than escaping as RecursionError.
 
 Namespaces are collapsed to local names: the builtin art carries no
 `xmlns`, and the fragment is injected into an already-SVG context.
@@ -19,7 +22,12 @@ Namespaces are collapsed to local names: the builtin art carries no
 
 from __future__ import annotations
 
+import re
 import xml.etree.ElementTree as ET
+
+# XML requires any DOCTYPE (and the ENTITY declarations it can carry) before
+# the root element, but match anywhere: fail-closed beats precise.
+_DTD_MARKER = re.compile(r"<!(?:DOCTYPE|ENTITY)", re.IGNORECASE)
 
 ALLOWED_ELEMENTS = frozenset(
     {
@@ -84,6 +92,10 @@ def sanitize_svg(text: str) -> str:
 
     Raises SvgSanitizeError on parse failure or a non-fragment root.
     """
+    if _DTD_MARKER.search(text):
+        raise SvgSanitizeError(
+            "figure carries a DTD or entity declaration; packs are plain SVG fragments"
+        )
     try:
         root = ET.fromstring(text)
     except ET.ParseError as exc:
@@ -91,6 +103,9 @@ def sanitize_svg(text: str) -> str:
     tag = _local(root.tag)
     if tag not in {"g", "svg"}:
         raise SvgSanitizeError(f"figure root must be a single <g> fragment (or <svg>), got <{tag}>")
-    clean = _clean_element(root)
+    try:
+        clean = _clean_element(root)
+    except RecursionError:
+        raise SvgSanitizeError("figure nests too deeply") from None
     assert clean is not None  # root tag was allowlist-checked above
     return ET.tostring(clean, encoding="unicode")
