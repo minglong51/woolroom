@@ -127,3 +127,29 @@ def test_seeded_pick_never_repeats_immediately():
         assert line in BODY_LANGUAGE[key]
         assert line != previous
         previous = line
+
+
+@pytest.mark.asyncio
+async def test_calls_today_fails_closed_when_db_is_unavailable(monkeypatch):
+    # The budget cap must never fail open on a metered key: with the
+    # llm_calls table unreachable, calls_today reports at least the cap so
+    # the respond path falls back to the phrasebook.
+    class _Boom:
+        def __call__(self):
+            raise RuntimeError("db down")
+
+    from app.config import settings
+
+    monkeypatch.setattr(llm_log, "SessionLocal", _Boom())
+    monkeypatch.setattr(settings, "llm_daily_call_cap", 7)
+    assert await llm_log.calls_today("failclosed-pet") >= 7
+
+    # Attempts still count in-process while the DB is down, so recovery
+    # never under-reports what was actually spent.
+    await llm_log.record(
+        llm_log.CallRecord(
+            provider="p", model="m", prompt_hash="h",
+            latency_ms=1, status="ok", pet_id="failclosed-pet",
+        )
+    )
+    assert llm_log._attempts("failclosed-pet") == 1
