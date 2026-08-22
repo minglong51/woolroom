@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>woolroom access</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta property="og:title" content="woolroom">
+  <meta property="og:description" content="a quiet room, shared.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="access-body">
+<main class="root access-root">
+  <section class="access-card">
+    <div class="access-scene" aria-hidden="true">
+      <div class="access-moon"></div>
+      <div class="access-floor"></div>
+      <div class="access-pet">
+        <span class="access-tail"></span>
+        <span class="access-body-shape"></span>
+        <span class="access-head"></span>
+      </div>
+    </div>
+
+    <div class="access-copy">
+      <p class="tiny muted access-kicker">private den</p>
+      <h1 class="logo access-logo">woolroom</h1>
+      <p class="access-note">a quiet room, shared.</p>
+      <p class="muted access-note access-note-quiet">say the private word once on this device. after that, the room should stay out of your way.</p>
+    </div>
+
+    <form id="access-form" class="access-form">
+      <label class="tiny muted access-label" for="password">site password</label>
+      <div class="row access-row">
+        <input
+          id="password"
+          class="input"
+          type="password"
+          placeholder="the private word"
+          autocomplete="current-password"
+          maxlength="256">
+        <button class="primary" type="submit">enter</button>
+      </div>
+      <p id="status" class="tiny muted access-status"></p>
+      <p class="tiny muted access-footnote">if someone invited you here, your browser will continue into the room after this.</p>
+    </form>
+
+    <div class="access-guest">
+      <button id="guest-button" class="ghost access-guest-button" type="button">peek inside as a guest</button>
+      <p id="guest-status" class="tiny muted access-guest-status"></p>
+    </div>
+  </section>
+</main>
+<script>
+  const form = document.getElementById("access-form");
+  const password = document.getElementById("password");
+  const status = document.getElementById("status");
+  const params = new URLSearchParams(location.search);
+  const next = params.get("next") || "/";
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    status.textContent = "";
+    form.classList.remove("is-error");
+    try {
+      const response = await fetch("/api/site-access", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ password: password.value }),
+      });
+      if (!response.ok) throw new Error("access denied");
+      location.assign(next);
+    } catch (err) {
+      password.value = "";
+      form.classList.add("is-error");
+      status.textContent = "that wasn't it.";
+      password.focus();
+    }
+  });
+
+  password.focus();
+
+  // Read-only peek: no password, no session — just the quiet room, watching.
+  const guestButton = document.getElementById("guest-button");
+  const guestStatus = document.getElementById("guest-status");
+  guestButton.addEventListener("click", async () => {
+    guestStatus.textContent = "";
+    guestButton.disabled = true;
+    try {
+      const response = await fetch("/api/guest-access", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      if (response.status === 404) {
+        guestStatus.textContent = "guest visits aren't open right now.";
+        return;
+      }
+      if (!response.ok) throw new Error("could not enter");
+      location.assign("/");
+    } catch (err) {
+      guestStatus.textContent = "something flickered — try again?";
+    } finally {
+      guestButton.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

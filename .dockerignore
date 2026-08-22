@@ -1,0 +1,12 @@
+.env*
+.git
+.gstack
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.venv
+*.db
+*.db-shm
+*.db-wal
+__pycache__
+node_modules

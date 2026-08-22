@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>woolroom</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta property="og:title" content="woolroom">
+  <meta property="og:description" content="a quiet room, shared.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="/static/apple-touch-icon.png">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+  <link rel="manifest" href="/static/manifest.json">
+  <link rel="stylesheet" href="/static/style.css">
+  <!-- Preload the module graph: app.js's imports are only discoverable after
+       app.js itself downloads, so without these hints the 8 modules wait a full
+       extra round trip (worse on cold 304 revalidation). Discovered 2026-07-28
+       via resource timing: every module started ~40ms after app.js even on
+       localhost. -->
+  <link rel="modulepreload" href="/static/js/state.js">
+  <link rel="modulepreload" href="/static/js/ui.js">
+  <link rel="modulepreload" href="/static/js/memory.js">
+  <link rel="modulepreload" href="/static/js/presence.js">
+  <link rel="modulepreload" href="/static/js/api.js">
+  <link rel="modulepreload" href="/static/js/quirks.js">
+  <link rel="modulepreload" href="/static/js/ws.js">
+  <link rel="modulepreload" href="/static/js/wool.js">
+  <link rel="modulepreload" href="/static/js/figures.js">
+  <link rel="modulepreload" href="/static/js/sound.js">
+  <!-- Import map: relative imports inside app.js ("./js/state.js") resolve
+       WITHOUT the ?v query (queries never propagate through a module graph),
+       which would fetch every module a second time unversioned alongside its
+       modulepreload. Mapping the resolved URL → versioned URL makes both land
+       on ONE immutable URL. Browsers without import-map support (Safari
+       <16.4) simply fall back to unversioned revalidating loads. -->
+  <script type="importmap">
+  {"imports": {
+    "/static/js/state.js": "/static/js/state.js?v=__APP_VERSION__",
+    "/static/js/ui.js": "/static/js/ui.js?v=__APP_VERSION__",
+    "/static/js/memory.js": "/static/js/memory.js?v=__APP_VERSION__",
+    "/static/js/presence.js": "/static/js/presence.js?v=__APP_VERSION__",
+    "/static/js/api.js": "/static/js/api.js?v=__APP_VERSION__",
+    "/static/js/quirks.js": "/static/js/quirks.js?v=__APP_VERSION__",
+    "/static/js/ws.js": "/static/js/ws.js?v=__APP_VERSION__",
+    "/static/js/wool.js": "/static/js/wool.js?v=__APP_VERSION__",
+    "/static/js/figures.js": "/static/js/figures.js?v=__APP_VERSION__",
+    "/static/js/sound.js": "/static/js/sound.js?v=__APP_VERSION__"
+  }}
+  </script>
+  <!-- app.js MUST execute before Alpine so `window.woolroom` is defined by the
+       time Alpine.start() walks the DOM. Module scripts and deferred classic
+       scripts share the same in-order "execute after parsing" queue. -->
+  <script type="module" src="/static/app.js"></script>
+  <script defer src="/static/vendor/alpine-3.14.1.min.js"></script>
+</head>
+<body>
+
+<!-- Boot splash: plain HTML/CSS (no Alpine), visible from first paint. Covers
+     both dead windows in the boot path — the pre-Alpine blank and the landing
+     flash returning users used to see while /api/me was in flight (view starts
+     "landing" and only resolves to scene after the fetch). init() dismisses it
+     once the view is known; the CSS animation is a escape hatch if JS never
+     boots. -->
+<div id="boot-splash" aria-hidden="true">
+  <p class="bs-logo">woolroom</p>
+  <p class="bs-line">{{VOICE_TAGLINE}}</p>
+</div>
+
+<noscript>
+  <div style="padding: 2rem; text-align: center; font-family: sans-serif;">
+    <h1>woolroom</h1>
+    <p>woolroom needs JavaScript to run. Enable JavaScript and refresh.</p>
+  </div>
+</noscript>
+
+<!-- No x-init: Alpine auto-calls a data method named `init` when the component
+     is constructed — having BOTH ran the entire boot flow twice (verified
+     2026-07-28: init ×2 → /api/me ×2, /api/quirks ×2, /api/memory ×2,
+     /api/unseen-notes ×2, two 60s hour timers). -->
+<main x-data="woolroom()" class="root"
+      @keydown.escape.window="showMemory = false; showSettings = false; showComposer = false">
+
+  <!-- Landing: no cookie yet. -->
+  <section class="landing-shell" x-show="view === 'landing'" x-cloak>
+    <div class="landing-scene quiet-panel" aria-hidden="true">
+      <p class="scene-kicker tiny muted">shared quiet</p>
+      <h1 class="logo landing-logo">woolroom</h1>
+      <p class="landing-line">{{VOICE_TAGLINE}}</p>
+      <div class="landing-room">
+        <svg viewBox="0 0 400 260" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <rect width="400" height="168" fill="var(--wall)"/>
+          <rect y="168" width="400" height="92" fill="var(--floor)"/>
+          <path d="M0 168 h400" stroke="var(--thread)" stroke-width="2.2" stroke-dasharray="7 6" opacity=".5"/>
+          <ellipse cx="200" cy="216" rx="112" ry="28" fill="var(--rug)"/>
+          <ellipse cx="200" cy="216" rx="112" ry="28" fill="none" stroke="var(--thread)" stroke-width="2" stroke-dasharray="2.5 9" stroke-linecap="round" opacity=".7"/>
+          <!-- the room's own figure (figures.js), scaled from its 400×520
+               frame into this one: ground line (200,450) → (200,217). No
+               [data-coat] ancestor here, so the art's baked-in red wool shows. -->
+          <g transform="translate(200 217) scale(0.7) translate(-200 -450)" x-html="catPreviewSvg()"></g>
+        </svg>
+      </div>
+      <p class="landing-preview muted" x-text="landingPreviewLine()"></p>
+    </div>
+
+    <div class="landing-entry quiet-panel">
+      <p class="scene-kicker tiny muted" x-text="landingKicker()"></p>
+      <h2 x-text="landingTitle()"></h2>
+      <p class="muted landing-copy" x-text="landingCopy()"></p>
+      <template x-if="canSignup()">
+        <div>
+          <div class="row landing-row">
+            <input
+              class="input"
+              type="text"
+              placeholder="your name"
+              x-model="displayName"
+              maxlength="64"
+              aria-label="your name">
+          </div>
+          <button class="primary landing-submit" @click="start()" :disabled="busy" x-text="landingButtonLabel()"></button>
+        </div>
+      </template>
+      <div class="landing-notes">
+        <p class="tiny muted" x-text="landingNotePrimary()"></p>
+        <p class="tiny muted" x-text="landingNoteSecondary()"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Adopt: user exists, no pet yet. -->
+  <section class="adopt-shell" x-show="view === 'adopt'" x-cloak>
+    <div class="adopt-copy center">
+      <p class="scene-kicker tiny muted">{{VOICE_ADOPT_KICKER}}</p>
+      <h2>{{VOICE_ADOPT_TITLE}}</h2>
+      <p class="muted">{{VOICE_ADOPT_SUB}}</p>
+    </div>
+
+    <div class="adopt-layout">
+      <aside class="adopt-preview quiet-panel">
+        <p class="tiny muted">future room</p>
+        <h3 class="adopt-preview-name" x-text="petName.trim() || 'your cat'"></h3>
+        <div class="adopt-mini-scene" aria-hidden="true" :data-coat="pickedCoat"
+             :class="quirkAuditionClasses()">
+          <svg viewBox="0 0 400 240" preserveAspectRatio="xMidYMid slice">
+            <rect width="400" height="156" fill="var(--wall)"/>
+            <rect y="156" width="400" height="84" fill="var(--floor)"/>
+            <path d="M0 156 h400" stroke="var(--thread)" stroke-width="2.2" stroke-dasharray="7 6" opacity=".5"/>
+            <ellipse cx="200" cy="200" rx="104" ry="26" fill="var(--rug)"/>
+            <ellipse class="mini-shadow" cx="200" cy="200" rx="43" ry="7" fill="rgba(74,60,44,.2)"/>
+            <g class="mini-mote">
+              <circle cx="270" cy="86" r="3" fill="#e8dcc4"/>
+            </g>
+            <g class="mini-dog">
+              <!-- the room's own figure (figures.js), scaled from its 400×520
+                   frame into this one: ground line (200,450) → (200,202). The
+                   audition CSS lands on .mini-dog + the rig classes. -->
+              <g transform="translate(200 202) scale(0.64) translate(-200 -450)" x-html="catPreviewSvg()"></g>
+            </g>
+            <g class="mini-stash">
+              <ellipse cx="260" cy="197" rx="16" ry="6" fill="#8e7f69"/>
+              <path d="M246 195 q14 -8 28 0" stroke="#f4ecdc" stroke-width="1.5" stroke-dasharray="3 5" fill="none"/>
+            </g>
+          </svg>
+        </div>
+        <p class="quirk-audition-status tiny muted" aria-live="polite"
+           x-text="quirkAuditionStatus"></p>
+        <p class="adopt-preview-line" x-text="adoptPreviewLine()"></p>
+        <ul class="adopt-preview-list">
+          <template x-for="line in selectedQuirkPreviewLines()" :key="line">
+            <li x-text="line"></li>
+          </template>
+        </ul>
+      </aside>
+
+      <div class="adopt-form quiet-panel">
+        <label class="adopt-label" for="pet-name">its name</label>
+        <input
+          id="pet-name"
+          class="input"
+          type="text"
+          placeholder="a name"
+          x-model="petName"
+          maxlength="64">
+
+        <p class="adopt-label">coat</p>
+        <div class="coat-row" role="group" aria-label="coat">
+          <template x-for="c in coatOptions()" :key="c.id">
+            <button
+              type="button"
+              class="coat-swatch"
+              :data-coat="c.id"
+              :class="{ picked: pickedCoat === c.id }"
+              :aria-pressed="pickedCoat === c.id"
+              :aria-label="c.label"
+              :title="c.label"
+              @click="pickedCoat = c.id"></button>
+          </template>
+        </div>
+
+        <div class="adopt-section-head">
+          <div>
+            <h3>choose two permanent habits</h3>
+            <p class="muted tiny">small things the cat will keep doing for the rest of its life.</p>
+          </div>
+          <div class="selection-badge tiny" x-text="`${pickedQuirks.length}/2 chosen`"></div>
+        </div>
+
+        <ul class="quirks quirk-grid">
+          <template x-for="q in quirks" :key="q.id">
+            <li>
+              <button
+                type="button"
+                class="quirk-card"
+                :class="{
+                  picked: pickedQuirks.includes(q.id),
+                  'at-limit': !pickedQuirks.includes(q.id) && pickedQuirks.length >= 2
+                }"
+                :aria-pressed="pickedQuirks.includes(q.id)"
+                :aria-describedby="`quirk-desc-${q.id}`"
+                @click="toggleQuirk(q.id)">
+                <span class="quirk-order" x-text="pickedQuirks.includes(q.id) ? pickedQuirks.indexOf(q.id) + 1 : '+'" aria-hidden="true"></span>
+                <span class="q-label" x-text="q.label"></span>
+                <span class="q-preview" x-text="quirkPreview(q.id)"></span>
+                <span :id="`quirk-desc-${q.id}`" class="q-desc" x-text="q.description"></span>
+                <span class="quirk-mood tiny muted" x-text="quirkMood(q.id)" aria-hidden="true"></span>
+                <span class="q-watch tiny muted">watch</span>
+              </button>
+            </li>
+          </template>
+        </ul>
+
+        <button class="primary adopt-submit" @click="adopt()"
+                :disabled="busy || !petName || pickedQuirks.length !== 2">
+          bring home
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- The wool room. -->
+  <section x-show="view === 'scene'" x-cloak class="scene" :class="{ composing: showComposer }">
+
+    <header class="scene-header">
+      <div class="identity-block">
+        <span class="name" x-text="pet?.name ?? ''"></span>
+        <p class="household-line muted" x-text="householdLine()"></p>
+      </div>
+      <div class="header-side">
+        <!-- Healthy systems don't announce themselves: this pill only
+             appears while the connection is actually settling. -->
+        <span class="realtime-pill" x-show="wsState !== 'live'" :class="realtimeToneClass()" x-text="realtimeLabel()"></span>
+        <span class="guest-badge tiny muted" x-show="guest" x-cloak>watching as a guest — ask the humans for an invite</span>
+        <button class="ghost menu-button sound-toggle" @click="toggleSound()"
+                :aria-pressed="soundOn"
+                x-text="soundOn ? 'sound on' : 'sound off'"></button>
+        <template x-if="!guest">
+          <button class="ghost menu-button" @click="openMemory()">memory</button>
+        </template>
+        <template x-if="!guest">
+          <button class="ghost menu-button" @click="showSettings = !showSettings">menu</button>
+        </template>
+      </div>
+    </header>
+
+    <div class="milestone quiet-panel" x-show="lastMilestone" x-cloak x-transition
+         role="status" aria-live="polite" aria-atomic="true">
+      <p class="milestone-kicker tiny" x-text="milestoneKicker()"></p>
+      <span class="milestone-fragment" x-text="lastMilestone?.fragment"></span>
+      <button type="button" class="milestone-dismiss" @click="dismissMilestone()"
+              aria-label="dismiss milestone">×</button>
+    </div>
+
+    <div class="scene-stage"
+         :class="{ 'has-sidecar': inviteUrl || (recoveryUrl && !bookmarkAcknowledged && recoveryCardExpanded) }">
+      <div class="room-col">
+      <!-- .happy is a performance flash (arrival, pounce), never a resting
+           state: a playful MOOD shows in the hop gait, not permanent squint -->
+      <div id="wool-scene" data-time="day" :data-coat="pet?.coat || 'red'"
+           :data-species="pet?.species || 'cat'"
+           :class="{ ...woolTraceClasses(), ...woolPoseClasses(), [`state-${animState}`]: true, sleeping: animState === 'sleeping', 'partner-arrived': partnerArrivedFlash, hungry: !!pet?.hungry && !guest }"
+           :style="dogRigStyle() + '; ' + figureCoatStyle() + '; ' + woolTraceStyle()">
+        <svg viewBox="0 0 400 520" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <filter id="feltg"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .05 0"/></filter>
+            <filter id="object-depth" x="-25%" y="-25%" width="150%" height="160%">
+              <feDropShadow dx="0" dy="2" stdDeviation="1.6" flood-color="#4a3c2c" flood-opacity=".16"/>
+            </filter>
+            <linearGradient id="wall-wool" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#e3d8c5"/>
+              <stop offset=".68" stop-color="#ded2bd"/>
+              <stop offset="1" stop-color="#d7cab3"/>
+            </linearGradient>
+            <linearGradient id="floor-wool" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#baad97"/>
+              <stop offset="1" stop-color="#a99a83"/>
+            </linearGradient>
+            <radialGradient id="rug-wool" cx=".5" cy=".38" r=".72">
+              <stop offset="0" stop-color="#a39279"/>
+              <stop offset="1" stop-color="#8e7f69"/>
+            </radialGradient>
+            <linearGradient id="window-wash" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#f4ecdc" stop-opacity=".2"/>
+              <stop offset="1" stop-color="#f4ecdc" stop-opacity="0"/>
+            </linearGradient>
+            <radialGradient id="lamppool" cx=".5" cy=".5" r=".5">
+              <stop offset="0" stop-color="#f4b96a" stop-opacity=".5"/><stop offset="1" stop-color="#f4b96a" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <rect class="wallr" width="400" height="336" fill="url(#wall-wool)"/>
+          <rect class="floorr" y="336" width="400" height="184" fill="url(#floor-wool)"/>
+          <path d="M0 336 h400" stroke="#f4ecdc" stroke-width="2.4" stroke-dasharray="7 6" class="seam"/>
+
+          <!-- window: near-neutral glass, stitched frame -->
+          <!-- window stitching dimmed into the wool: bright accents must respond,
+               and the window doesn't — so it recedes instead -->
+          <rect x="28" y="40" width="82" height="96" rx="8" class="winglass" fill="#d8d3c6" stroke="#f4ecdc" stroke-width="2.2" stroke-dasharray="6 5" stroke-opacity=".55"/>
+          <path d="M69 40 v96 M28 88 h82" stroke="#f4ecdc" stroke-width="2" opacity=".45"/>
+          <path class="window-wash" d="M28 136 H110 L250 520 H0 Z"
+                fill="url(#window-wash)" pointer-events="none"/>
+          <g class="focusmote" aria-hidden="true">
+            <circle cx="132" cy="166" r="2.7" fill="#f4ecdc"/>
+            <path d="M124 166 h16 M132 158 v16" stroke="#f4ecdc" stroke-width=".8" opacity=".6"/>
+          </g>
+          <!-- bright-thing-is-a-promise: the sun/moon respond with the hour -->
+          <g class="sunbtn hotspot" @click="woolSkyTap()" @keydown.enter.prevent="woolSkyTap()" @keydown.space.prevent="woolSkyTap()" role="button" tabindex="0" aria-label="the sun">
+            <circle cx="170" cy="76" r="19" fill="#e8dcc4" stroke="#c4b493" stroke-width="2.2"/>
+            <circle cx="164" cy="71" r="2.2" fill="#a4977e"/><circle cx="176" cy="71" r="2.2" fill="#a4977e"/>
+            <circle cx="164" cy="82" r="2.2" fill="#a4977e"/><circle cx="176" cy="82" r="2.2" fill="#a4977e"/></g>
+          <g class="moonbtn hotspot" @click="woolSkyTap()" @keydown.enter.prevent="woolSkyTap()" @keydown.space.prevent="woolSkyTap()" role="button" tabindex="0" aria-label="the moon">
+            <circle cx="170" cy="76" r="12" fill="#e8e2d2" stroke="#c4b89d" stroke-width="2"/></g>
+
+          <!-- shelf: up to three kept moments (real, from /api/memory) -->
+          <g class="shelfg" x-show="woolShelf.length">
+            <rect x="292" y="118" width="86" height="4" rx="2" fill="rgba(70,58,44,.5)"/>
+            <g class="hotspot" x-show="woolShelf[0]" @click="woolPatchTap(woolShelf[0].fragment, woolShelf[0].when)" @keydown.enter.prevent="woolPatchTap(woolShelf[0].fragment, woolShelf[0].when)" @keydown.space.prevent="woolPatchTap(woolShelf[0].fragment, woolShelf[0].when)" role="button" tabindex="0" aria-label="a kept moment">
+              <circle cx="306" cy="106" r="13" fill="transparent"/>
+              <path d="M300 116 C296 104 302 94 312 92 C310 104 308 110 304 116 Z" fill="#e8dcc4" stroke="#c4b493" stroke-width="1.4"/>
+            </g>
+            <g class="hotspot" x-show="woolShelf[1]" @click="woolPatchTap(woolShelf[1].fragment, woolShelf[1].when)" @keydown.enter.prevent="woolPatchTap(woolShelf[1].fragment, woolShelf[1].when)" @keydown.space.prevent="woolPatchTap(woolShelf[1].fragment, woolShelf[1].when)" role="button" tabindex="0" aria-label="a kept moment">
+              <circle cx="336" cy="106" r="13" fill="transparent"/>
+              <circle cx="336" cy="104" r="6" fill="none" stroke="#8a715c" stroke-width="2.4"/>
+              <path d="M336 110 v5 l4 2 h-8 l4 -2" fill="#9a8a72"/>
+            </g>
+            <g class="hotspot" x-show="woolShelf[2]" @click="woolPatchTap(woolShelf[2].fragment, woolShelf[2].when)" @keydown.enter.prevent="woolPatchTap(woolShelf[2].fragment, woolShelf[2].when)" @keydown.space.prevent="woolPatchTap(woolShelf[2].fragment, woolShelf[2].when)" role="button" tabindex="0" aria-label="a kept moment">
+              <circle cx="362" cy="106" r="13" fill="transparent"/>
+              <path d="M356 110 q6 -8 12 0 q-1 8 -6 8 q-5 0 -6 -8 Z" fill="#e8dcc4" stroke="#c4b493" stroke-width="1.4"/>
+            </g>
+          </g>
+
+          <!-- andon lamps: one per human, identical; light is the state -->
+          <g class="lamp lamp-self" @click="woolLampTap('self')" @keydown.enter.prevent="woolLampTap('self')" @keydown.space.prevent="woolLampTap('self')" role="button" tabindex="0" aria-label="your lamp — lit while you're here">
+            <ellipse class="glowpool" cx="52" cy="400" rx="76" ry="52" fill="url(#lamppool)"/>
+            <g class="flareg"><rect x="30" y="288" width="46" height="60" rx="5" fill="none" stroke="#ffd9a0" stroke-width="3"/></g>
+            <rect x="32" y="290" width="42" height="56" rx="4" fill="#efe4cb"/>
+            <circle class="gloworb" cx="53" cy="318" r="15" fill="#ffcf8f"/>
+            <!-- a ♥ pressed here while you were away waits until you touch the lamp -->
+            <g class="heartg heartwait" x-show="woolHearts.length" x-cloak>
+              <path d="M53 306 c-4 -5.5 -11 -2.4 -9.5 3 c.8 4 5.5 6.3 9.5 9.5 c4 -3.2 8.7 -5.5 9.5 -9.5 c1.5 -5.4 -5.5 -8.5 -9.5 -3 Z"
+                fill="#c9a76a" opacity=".55"/>
+            </g>
+            <rect x="32" y="290" width="42" height="56" rx="4" fill="none" stroke="#5a4636" stroke-width="2.8"/>
+            <path d="M53 290 v56 M32 318 h42" stroke="#5a4636" stroke-width="2.2"/>
+            <rect x="28" y="284" width="50" height="7" rx="3" fill="#5a4636"/>
+            <rect x="35" y="346" width="6" height="7" fill="#5a4636"/>
+            <rect x="65" y="346" width="6" height="7" fill="#5a4636"/>
+            <text x="53" y="368" class="lampname" text-anchor="middle"
+                  x-text="(user?.display_name || 'you').toLowerCase()"></text>
+          </g>
+          <g class="lamp lamp-partner" x-show="!guest" :data-state="woolPartnerLampState()"
+             @click="woolLampTap('partner')" @keydown.enter.prevent="woolLampTap('partner')" @keydown.space.prevent="woolLampTap('partner')" role="button" tabindex="0"
+             aria-label="their lamp — tap to send a warm thought">
+            <ellipse class="glowpool" cx="348" cy="400" rx="76" ry="52" fill="url(#lamppool)"/>
+            <g class="flareg"><rect x="326" y="288" width="46" height="60" rx="5" fill="none" stroke="#ffd9a0" stroke-width="3"/></g>
+            <rect x="328" y="290" width="42" height="56" rx="4" fill="#efe4cb"/>
+            <circle class="gloworb" cx="349" cy="318" r="15" fill="#ffcf8f"/>
+            <rect x="328" y="290" width="42" height="56" rx="4" fill="none" stroke="#5a4636" stroke-width="2.8"/>
+            <path d="M349 290 v56 M328 318 h42" stroke="#5a4636" stroke-width="2.2"/>
+            <rect x="324" y="284" width="50" height="7" rx="3" fill="#5a4636"/>
+            <rect x="331" y="346" width="6" height="7" fill="#5a4636"/>
+            <rect x="361" y="346" width="6" height="7" fill="#5a4636"/>
+            <g id="lamp-heart" class="heartg">
+              <path d="M349 306 c-4 -5.5 -11 -2.4 -9.5 3 c.8 4 5.5 6.3 9.5 9.5 c4 -3.2 8.7 -5.5 9.5 -9.5 c1.5 -5.4 -5.5 -8.5 -9.5 -3 Z"
+                fill="#c9a76a" opacity=".55"/>
+            </g>
+            <text x="349" y="368" class="lampname" text-anchor="middle"
+                  x-text="(partnerDisplayNames()[0] || 'them').toLowerCase()"></text>
+          </g>
+
+          <!-- leash by the door edge: tap = walk -->
+          <g class="leashg hotspot" @click="woolWalk()" @keydown.enter.prevent="woolWalk()" @keydown.space.prevent="woolWalk()" role="button" tabindex="0" aria-label="the leash — tap to walk">
+            <circle cx="386" cy="252" r="12" fill="transparent"/>
+            <circle cx="386" cy="246" r="5" fill="none" stroke="#8a7f6b" stroke-width="2.4"/>
+            <path d="M386 251 q-2 20 0 38" stroke="#8a7f6b" stroke-width="3" fill="none" stroke-linecap="round"/>
+          </g>
+
+          <!-- the door next door: tap to cross to the sibling room,
+               double-tap to bring this room's little one along (playdate).
+               The stitch tells who lives there and whether they're up. -->
+          <g class="doorg hotspot" x-show="pet?.sibling" x-cloak
+             :class="{ doorpulse: doorUndiscovered() }" :data-state="doorState()"
+             @click="woolDoorTap()" @keydown.enter.prevent="woolDoorTap()" @keydown.space.prevent="woolDoorTap()"
+             role="button" tabindex="0"
+             :aria-label="'the door to ' + (pet?.sibling?.name || 'the other room') + ' — tap to visit, double-tap to bring ' + (pet?.name || 'them') + ' along'">
+            <circle cx="63" cy="222" r="38" fill="transparent"/>
+            <ellipse class="doorglow" cx="63" cy="270" rx="34" ry="7" fill="url(#lamppool)"/>
+            <path d="M38 268 V200 c0 -24 50 -24 50 0 V268 Z" fill="#c9b393" stroke="#f4ecdc" stroke-width="2.2" stroke-dasharray="6 5"/>
+            <path class="doorleaf" d="M44 268 V203 c0 -17 38 -17 38 0 V268 Z" fill="#b3a184"/>
+            <circle cx="79" cy="238" r="2.8" fill="#f4ecdc"/>
+            <text x="63" y="189" class="doorname" text-anchor="middle"
+                  x-text="(pet?.sibling?.name || '').toLowerCase()"></text>
+            <g class="doorzzz" x-show="pet?.sibling?.animation_state === 'sleeping'">
+              <text x="70" y="212" class="doorz">z</text>
+              <text x="78" y="203" class="doorz z2">z</text>
+            </g>
+            <circle class="doorpresence" cx="63" cy="176" r="3"
+                    x-show="(pet?.sibling?.online_count || 0) > 0"/>
+          </g>
+
+          <!-- the rug, its stitched patches (kept moments), traces -->
+          <ellipse cx="200" cy="451" rx="145" ry="39" fill="rgba(74,60,44,.16)" class="rugshadow"/>
+          <ellipse cx="200" cy="446" rx="142" ry="38" fill="url(#rug-wool)" class="rugbase"/>
+          <ellipse cx="200" cy="446" rx="142" ry="38" fill="none" stroke="#f4ecdc" stroke-width="2.4" stroke-dasharray="2.5 10" stroke-linecap="round" class="rugstitch"/>
+          <ellipse class="rugwarm" cx="240" cy="446" rx="60" ry="18" fill="rgba(244,185,106,.22)"/>
+          <g class="hotspot" x-show="woolPatches[0]" @click="woolPatchTap(woolPatches[0].fragment, woolPatches[0].when)" @keydown.enter.prevent="woolPatchTap(woolPatches[0].fragment, woolPatches[0].when)" @keydown.space.prevent="woolPatchTap(woolPatches[0].fragment, woolPatches[0].when)" role="button" tabindex="0" aria-label="a moment mended into the rug">
+            <circle cx="122" cy="441" r="16" fill="transparent"/>
+            <path d="M116 434 q6 -8 12 0 q6 8 -6 14 q-12 -6 -6 -14 Z" fill="#e8dcc4" stroke="#c4b493" stroke-width="1.5"/>
+          </g>
+          <g class="hotspot" x-show="woolPatches[1]" @click="woolPatchTap(woolPatches[1].fragment, woolPatches[1].when)" @keydown.enter.prevent="woolPatchTap(woolPatches[1].fragment, woolPatches[1].when)" @keydown.space.prevent="woolPatchTap(woolPatches[1].fragment, woolPatches[1].when)" role="button" tabindex="0" aria-label="a moment mended into the rug">
+            <circle cx="278" cy="455" r="16" fill="transparent"/>
+            <rect x="270" y="448" width="16" height="13" rx="3" fill="#8a715c" stroke="#6e5a48" stroke-width="1.4"/>
+            <path d="M272 451 h12 M272 455 h12" stroke="#c9b691" stroke-width="1" opacity=".8"/>
+          </g>
+          <g class="hotspot" x-show="woolPatches[2]" @click="woolPatchTap(woolPatches[2].fragment, woolPatches[2].when)" @keydown.enter.prevent="woolPatchTap(woolPatches[2].fragment, woolPatches[2].when)" @keydown.space.prevent="woolPatchTap(woolPatches[2].fragment, woolPatches[2].when)" role="button" tabindex="0" aria-label="a moment mended into the rug">
+            <circle cx="196" cy="472" r="15" fill="transparent"/>
+            <circle cx="196" cy="470" r="7" fill="#e0d5bc" stroke="#c4b493" stroke-width="1.4"/>
+          </g>
+
+          <!-- the stash: a lump appears in the rug after zoomies. do not ask. -->
+          <g id="ruglump" class="ruglump hotspot" @click="woolLumpTap()" @keydown.enter.prevent="woolLumpTap()" @keydown.space.prevent="woolLumpTap()" role="button" tabindex="0"
+             aria-label="a suspicious lump in the rug">
+            <circle cx="246" cy="436" r="17" fill="transparent"/>
+            <ellipse cx="246" cy="437" rx="15" ry="6.5" fill="#a59480"/>
+            <ellipse cx="246" cy="440" rx="15" ry="4" fill="rgba(90,72,54,.18)"/>
+            <path d="M234 434 q12 -7 24 0" stroke="#f4ecdc" stroke-width="1.6" stroke-dasharray="2.5 6" stroke-linecap="round" fill="none" opacity=".6"/>
+          </g>
+
+          <!-- bowl: tap = feed; kibble doubles as the partner's trace.
+               When the cat is hungry the bowl glows softly and dashed
+               kibble outlines ask to be filled. -->
+          <g class="bowlg hotspot" @click="woolFeed()" @keydown.enter.prevent="woolFeed()" @keydown.space.prevent="woolFeed()" role="button" tabindex="0" aria-label="the bowl — tap to feed">
+            <circle cx="76" cy="464" r="28" fill="transparent"/>
+            <ellipse class="bowlglow" cx="76" cy="462" rx="34" ry="18" fill="url(#lamppool)"/>
+            <ellipse cx="76" cy="464" rx="24" ry="9" fill="#8a715c"/>
+            <ellipse cx="76" cy="460" rx="23" ry="7.5" fill="#6e5a48"/>
+            <g class="kibble-hint" aria-hidden="true">
+              <circle cx="70" cy="458" r="2.6" fill="none" stroke="#e8dcc4" stroke-width="1.2" stroke-dasharray="2 2"/>
+              <circle cx="80" cy="460" r="2.6" fill="none" stroke="#e8dcc4" stroke-width="1.2" stroke-dasharray="2 2"/>
+            </g>
+            <g class="kibbleg">
+              <circle id="k1" cx="70" cy="458" r="2.2" fill="#e8dcc4" opacity="0"/>
+              <circle id="k2" cx="78" cy="460" r="2.2" fill="#e8dcc4" opacity="0"/>
+              <circle id="k3" cx="74" cy="462" r="2.2" fill="#e8dcc4" opacity="0"/>
+            </g>
+          </g>
+
+          <!-- ball: tap = play -->
+          <g id="roomball" class="ballg hotspot" @click="woolPlay()" @keydown.enter.prevent="woolPlay()" @keydown.space.prevent="woolPlay()" role="button" tabindex="0" aria-label="the ball — tap to play">
+            <circle cx="310" cy="460" r="18" fill="transparent"/>
+            <circle cx="310" cy="460" r="12" fill="#e8dcc4" stroke="#c4b493" stroke-width="1.6"/>
+            <path d="M301 454 q9 6 18 0 M301 466 q9 -6 18 0" stroke="#b3a58e" stroke-width="1.4" fill="none"/>
+          </g>
+
+          <g class="phone-trace phone-shelf" aria-hidden="true">
+            <rect x="321" y="128" width="17" height="25" rx="4" fill="#6e5a48"/>
+            <rect x="324" y="131" width="11" height="17" rx="2" fill="#f4b96a"/>
+          </g>
+          <g class="phone-trace phone-floor" aria-hidden="true">
+            <rect x="111" y="419" width="17" height="25" rx="4" fill="#6e5a48" transform="rotate(-12 119.5 431.5)"/>
+            <rect x="114" y="422" width="11" height="17" rx="2" fill="#f4b96a" transform="rotate(-12 119.5 431.5)"/>
+          </g>
+
+          <!-- settle-notes: whispers you haven't heard yet, folded and waiting
+               by your lamp. tap one and the room reads it to you. (static
+               slots, not x-for: <template> doesn't parse inside SVG) -->
+          <g class="notesg">
+            <g class="hotspot notepaper" transform="translate(100 372)" x-show="woolNotes[0]"
+               @click="woolNoteTap(woolNotes[0])" @keydown.enter.prevent="woolNoteTap(woolNotes[0])" @keydown.space.prevent="woolNoteTap(woolNotes[0])" role="button" tabindex="0" aria-label="a note left for you — tap to read">
+              <circle r="14" fill="transparent"/>
+              <rect x="-8" y="-6" width="16" height="12" rx="1.5" fill="#e8dcc4" stroke="#c4b493" stroke-width="1.4"/>
+              <path d="M-8 -6 l5 5 l-5 0 Z" fill="#d3c5a4"/>
+              <path d="M-3 -1 h8 M-3 2 h6" stroke="#a4977e" stroke-width="1" opacity=".7"/>
+            </g>
+            <g class="hotspot notepaper" transform="translate(124 386) rotate(8)" x-show="woolNotes[1]"
+               @click="woolNoteTap(woolNotes[1])" @keydown.enter.prevent="woolNoteTap(woolNotes[1])" @keydown.space.prevent="woolNoteTap(woolNotes[1])" role="button" tabindex="0" aria-label="a note left for you — tap to read">
+              <circle r="14" fill="transparent"/>
+              <rect x="-8" y="-6" width="16" height="12" rx="1.5" fill="#e8dcc4" stroke="#c4b493" stroke-width="1.4"/>
+              <path d="M-8 -6 l5 5 l-5 0 Z" fill="#d3c5a4"/>
+              <path d="M-3 -1 h8 M-3 2 h6" stroke="#a4977e" stroke-width="1" opacity=".7"/>
+            </g>
+            <g class="hotspot notepaper" transform="translate(98 400) rotate(-6)" x-show="woolNotes[2]"
+               @click="woolNoteTap(woolNotes[2])" @keydown.enter.prevent="woolNoteTap(woolNotes[2])" @keydown.space.prevent="woolNoteTap(woolNotes[2])" role="button" tabindex="0" aria-label="a note left for you — tap to read">
+              <circle r="14" fill="transparent"/>
+              <rect x="-8" y="-6" width="16" height="12" rx="1.5" fill="#e8dcc4" stroke="#c4b493" stroke-width="1.4"/>
+              <path d="M-8 -6 l5 5 l-5 0 Z" fill="#d3c5a4"/>
+              <path d="M-3 -1 h8 M-3 2 h6" stroke="#a4977e" stroke-width="1" opacity=".7"/>
+            </g>
+          </g>
+
+          <g id="dust">
+            <circle class="dustp" id="dust1" r="4" fill="#cfc2a8"/>
+            <circle class="dustp" id="dust2" r="3" fill="#cfc2a8"/>
+          </g>
+
+          <!-- the little one of the room: one silhouette that breathes.
+               Species art is injected from figures.js via x-html — <template>
+               doesn't parse inside <svg>, and string injection keeps exactly
+               one figure in the DOM so the rig ids never collide. -->
+          <g id="dogmove" :class="{ away: pet?.visit?.role === 'away' }">
+            <g id="dog-gait">
+              <!-- render_scale wraps the pet INSIDE the gait transform so age
+                   composes with locomotion instead of fighting it -->
+              <g :transform="dogScaleTransform()">
+              <g class="squishg"><g class="breath">
+                <g x-html="petFigureSvg()"></g>
+              </g></g>
+              </g>
+            </g>
+            <rect id="dogzone" x="128" y="270" width="144" height="188" fill="transparent"
+                  tabindex="0" role="button"
+                  :aria-label="(pet?.name || 'the cat') + ' — stroke or tap to pet, double-tap for the zoomies'"/>
+          </g>
+
+          <!-- a playdate guest: the sibling pet, through the door for a
+               while. Drawn from the same figure art minus the singleton ids;
+               position is JS-driven like the resident's. -->
+          <g id="visitormove" x-show="pet?.visit?.role === 'host' || visitorLinger" x-cloak>
+            <g :transform="visitorScaleTransform()">
+              <g class="squishg"><g class="breath">
+                <g x-html="visitorSvg()"></g>
+              </g></g>
+            </g>
+          </g>
+
+          <rect width="400" height="520" filter="url(#feltg)" pointer-events="none"/>
+          <g class="light-dusk lightlayer">
+            <rect width="400" height="520" fill="#e8823c" opacity=".16" style="mix-blend-mode:multiply"/>
+            <rect width="400" height="520" fill="#ffb56a" opacity=".18" style="mix-blend-mode:soft-light"/>
+          </g>
+          <g class="light-night lightlayer">
+            <rect width="400" height="520" fill="#25304d" opacity=".5" style="mix-blend-mode:multiply"/>
+            <rect width="400" height="520" fill="#1c2740" opacity=".22"/>
+            <ellipse cx="58" cy="410" rx="150" ry="110" fill="url(#lamppool)"/>
+            <ellipse class="night-partner-pool" :data-state="woolPartnerLampState()"
+                     cx="342" cy="410" rx="150" ry="110" fill="url(#lamppool)"/>
+            <ellipse cx="200" cy="450" rx="140" ry="66" fill="url(#lamppool)" opacity=".45"/>
+          </g>
+        </svg>
+
+        <!-- speech as breath: the cat's line floats in the room, then fades.
+             History stays reachable in the memory drawer. -->
+        <p class="utter" :class="{ show: woolLine || lastResponse }"
+           x-text="woolLine || (lastResponse ? lastResponse.text : '')"></p>
+
+        <button type="button" class="whisper" x-show="!showComposer && !guest"
+                @click="showComposer = true">whisper something…</button>
+        <form class="composer" x-show="showComposer && !guest" x-cloak @submit.prevent="sendMessage(); showComposer = false">
+          <input class="input" type="text" placeholder="leave a quiet note"
+                 x-model="messageText" maxlength="200" :aria-label="'whisper to ' + (pet?.name || 'the cat')">
+          <button class="ghost send-quiet" :disabled="!messageText.trim() || !!actingAction">send</button>
+          <button type="button" class="ghost composer-close" @click="showComposer = false" aria-label="close">×</button>
+        </form>
+      </div>
+
+      <!-- ambient narration lives under the frame, museum-placard style —
+           legible text never runs across the furniture -->
+      <p class="room-caption" x-show="coupleRhythmLine() || stagePresenceLine()"
+         x-text="coupleRhythmLine() || stagePresenceLine()"></p>
+
+      <div class="verb-row room-verbs" role="group" aria-label="actions" x-show="!guest">
+        <button class="verb" :disabled="!!actingAction" @click="woolGreet()">hello</button>
+        <button class="verb" :disabled="!!actingAction" @click="_woolResolveTouch(30, 380, 150)">pet</button>
+        <button class="verb" :disabled="!!actingAction" @click="woolFeed()">feed</button>
+        <button class="verb" :disabled="!!actingAction" @click="woolWalk()">walk</button>
+        <button class="verb" :disabled="!!actingAction" @click="woolPlay()">play</button>
+        <button class="verb" :disabled="!!actingAction" @click="woolCall()">call</button>
+      </div>
+      </div>
+
+      <!-- the exception lane: quiet cards that exist only when needed -->
+      <div class="scene-sidecar"
+           x-show="inviteUrl || (recoveryUrl && !bookmarkAcknowledged) || ceremonyPet()"
+           x-cloak>
+        <div class="invite-card quiet-panel" x-show="inviteUrl" x-cloak>
+          <p class="invite-title" x-text="inviteCardTitle()"></p>
+          <p class="tiny muted" x-text="inviteCardNote()"></p>
+          <code class="invite-link" x-text="inviteUrl"></code>
+          <button class="ghost invite-copy" :class="{ 'is-copied': inviteCopied }" @click="copyInvite()"
+                  x-text="inviteCopied ? 'copied — hand it to them' : 'copy invite link'"></button>
+        </div>
+
+        <!-- co-adoption ceremony: the second cat arrived half-decided; this
+             card is the partner's doorway to picking its second habit. -->
+        <div class="invite-card quiet-panel ceremony-card" x-show="ceremonyPet() && !showCeremony" x-cloak>
+          <p class="invite-title">{{VOICE_CEREMONY_CARD_TITLE}}</p>
+          <p class="tiny muted">
+            <span x-text="ceremonyPet()?.name || 'the new cat'"></span> {{VOICE_CEREMONY_CARD_NOTE}}
+          </p>
+          <button class="ghost invite-copy" @click="openCeremony()">{{VOICE_CEREMONY_CARD_BUTTON}}</button>
+        </div>
+
+        <div class="invite-card quiet-panel recovery-card"
+             :class="{ collapsed: !recoveryCardExpanded }"
+             x-show="recoveryUrl && !bookmarkAcknowledged" x-cloak>
+          <button class="recovery-pill"
+                  x-show="!recoveryCardExpanded"
+                  @click="recoveryCardExpanded = true">
+            <span>save the link to come back ▾</span>
+          </button>
+          <template x-if="recoveryCardExpanded">
+            <div>
+              <button class="recovery-collapse" @click="recoveryCardExpanded = false" aria-label="collapse">▴</button>
+              <p class="invite-title">save this link — it's the way back in.</p>
+              <p class="tiny muted recovery-instructions">on iOS, share → add to home screen. on desktop, bookmark. quiet rule: keep it private — this link is the door.</p>
+              <code class="invite-link" x-text="recoveryUrl"></code>
+              <div class="row" style="margin-top: 8px; gap: 8px">
+                <button class="ghost invite-copy" @click="copy(recoveryUrl)">copy</button>
+                <button class="ghost invite-copy" @click="acknowledgeBookmark()">got it, hide this</button>
+              </div>
+            </div>
+          </template>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Backdrop dims the page behind any open drawer. -->
+    <div class="drawer-backdrop"
+         x-show="showMemory || showSettings || showCeremony"
+         @click="showMemory = false; showSettings = false; showCeremony = false"
+         x-cloak></div>
+
+    <!-- The ceremony: the partner meets the new cat and picks its second
+         habit. Its first habit is already sewn in — shown as chosen,
+         unchangeable. -->
+    <aside class="drawer ceremony-drawer" x-show="showCeremony" @click.outside="showCeremony = false" x-cloak>
+      <button class="drawer-close" @click="showCeremony = false" aria-label="close">×</button>
+      <h3 x-text="`meet ${ceremonyPet()?.name || 'the new cat'}`"></h3>
+      <div class="adopt-mini-scene ceremony-preview" aria-hidden="true"
+           :data-species="ceremonyPet()?.species || 'cat'" :data-coat="ceremonyPet()?.coat || 'marmalade'">
+        <svg viewBox="100 240 200 220" preserveAspectRatio="xMidYMid meet">
+          <rect x="100" y="240" width="200" height="96" fill="var(--wall)"/>
+          <rect x="100" y="336" width="200" height="124" fill="var(--floor)"/>
+          <ellipse cx="200" cy="446" rx="98" ry="26" fill="var(--rug)"/>
+          <g x-html="catPreviewSvg()"></g>
+        </svg>
+      </div>
+      <p class="tiny muted">{{VOICE_CEREMONY_DRAWER_NOTE}}</p>
+      <ul class="quirks quirk-grid ceremony-quirks">
+        <template x-for="q in quirks" :key="q.id">
+          <li>
+            <button
+              type="button"
+              class="quirk-card"
+              :class="{ picked: ceremonyFirstQuirk() === q.id || ceremonyPick === q.id, 'at-limit': ceremonyFirstQuirk() === q.id }"
+              :disabled="ceremonyFirstQuirk() === q.id"
+              @click="ceremonyPick = q.id">
+              <span class="quirk-order" x-text="ceremonyFirstQuirk() === q.id ? '1' : (ceremonyPick === q.id ? '2' : '+')" aria-hidden="true"></span>
+              <span class="q-label" x-text="q.label"></span>
+              <span class="q-preview" x-text="quirkPreview(q.id, 'cat')"></span>
+            </button>
+          </li>
+        </template>
+      </ul>
+      <button class="primary adopt-submit" @click="confirmSecondQuirk()"
+              :disabled="!ceremonyPick || ceremonyBusy">
+        {{VOICE_CEREMONY_DRAWER_BUTTON}}
+      </button>
+    </aside>
+
+    <!-- Memory drawer. -->
+    <aside class="drawer" x-show="showMemory" @click.outside="showMemory = false" x-cloak>
+      <button class="drawer-close" @click="showMemory = false" aria-label="close">×</button>
+      <h3>what we've kept</h3>
+      <p class="tiny muted" x-show="pet?.origin_line" x-text="pet?.origin_line"></p>
+      <p class="tiny muted" x-show="memory">
+        <span x-text="memory?.pet_name || 'the cat'"></span> has shared this room with you for
+        <span x-text="memoryDaysLine()"></span>.
+      </p>
+      <p class="tiny muted" x-show="memory?.first_walk_day">
+        first walk together: <span x-text="memory?.first_walk_day"></span>
+      </p>
+      <p class="tiny muted" x-show="memory?.first_sigh_day">
+        first settled sigh: <span x-text="memory?.first_sigh_day"></span>
+      </p>
+      <hr>
+      <p class="tiny muted" x-show="memory && memory.moments.length">small things, kept on purpose — the first few live on the shelf and the rug</p>
+      <template x-for="group in groupedMemoryMoments()" :key="group.label">
+        <div class="memory-group">
+          <p class="memory-group-label tiny muted" x-text="group.label"></p>
+          <ul class="room-notes-list">
+            <template x-for="m in group.items" :key="m.id">
+              <li>
+                <span x-text="m.fragment"></span>
+              </li>
+            </template>
+          </ul>
+        </div>
+      </template>
+      <div x-show="roomNotes().length">
+        <hr>
+        <p class="tiny muted">recent room memory</p>
+        <ul class="room-notes-list">
+          <template x-for="(note, idx) in roomNotes()" :key="`${note.created_at}-${note.event_type}-${idx}`">
+            <li>
+              <span x-text="formatRoomNoteLine(note)"></span>
+              <button
+                class="ghost tiny note-keep"
+                x-show="note.event_id && !pinnedEventIds.includes(note.event_id)"
+                @click="pinNote(note)"
+                :disabled="busy">remember</button>
+              <span class="tiny muted" x-show="note.event_id && pinnedEventIds.includes(note.event_id)" style="margin-left: 6px">✓ kept</span>
+            </li>
+          </template>
+        </ul>
+      </div>
+      <p class="tiny muted" x-show="memory && !memory.moments.length">nothing yet. rooms fill slowly. (when a moment is worth keeping, tap "remember" on it.)</p>
+    </aside>
+
+    <!-- Settings drawer. -->
+    <aside class="drawer" x-show="showSettings" @click.outside="showSettings = false" x-cloak>
+      <button class="drawer-close" @click="showSettings = false" aria-label="close">×</button>
+      <h3>settings</h3>
+      <p class="tiny muted">recovery link — opening it on a new device rebinds your session. don't share it.</p>
+      <div x-show="!showRecovery" x-cloak>
+        <button class="ghost" @click="showRecovery = true" :disabled="!recoveryUrl">reveal recovery link</button>
+      </div>
+      <div x-show="showRecovery" x-cloak>
+        <code class="wrap" x-text="recoveryUrl"></code>
+        <div class="row" style="margin-top: 8px; gap: 8px">
+          <button class="ghost" @click="copy(recoveryUrl)">copy</button>
+          <button class="ghost" @click="showRecovery = false">hide</button>
+        </div>
+      </div>
+      <hr>
+      <p class="tiny muted">coat — the same one, in a different wool.</p>
+      <div class="coat-row" role="group" aria-label="coat">
+        <template x-for="c in coatOptions()" :key="c.id">
+          <button
+            type="button"
+            class="coat-swatch"
+            :data-coat="c.id"
+            :class="{ picked: (pet?.coat || coatOptions()[0].id) === c.id }"
+            :aria-pressed="(pet?.coat || coatOptions()[0].id) === c.id"
+            :aria-label="c.label"
+            :title="c.label"
+            @click="setCoat(c.id)"></button>
+        </template>
+      </div>
+      <template x-if="canAdoptSecond()">
+        <div>
+          <hr>
+          <p class="tiny muted">{{VOICE_SECOND_ADOPT_NOTE}}</p>
+          <div x-show="!showSecondAdopt">
+            <button class="ghost" @click="openSecondAdopt()">{{VOICE_SECOND_ADOPT_BUTTON}}</button>
+          </div>
+          <div x-show="showSecondAdopt" x-cloak>
+            <input class="input" type="text" placeholder="its name" x-model="secondName" maxlength="64">
+            <div class="coat-row" role="group" aria-label="its wool">
+              <template x-for="c in secondCoatOptions()" :key="c.id">
+                <button
+                  type="button"
+                  class="coat-swatch"
+                  :data-coat="c.id"
+                  :class="{ picked: secondCoat === c.id }"
+                  :aria-pressed="secondCoat === c.id"
+                  :aria-label="c.label"
+                  :title="c.label"
+                  @click="secondCoat = c.id"></button>
+              </template>
+            </div>
+            <ul class="quirks quirk-grid ceremony-quirks">
+              <template x-for="q in quirks" :key="q.id">
+                <li>
+                  <button
+                    type="button"
+                    class="quirk-card"
+                    :class="{ picked: secondQuirk === q.id }"
+                    :aria-pressed="secondQuirk === q.id"
+                    @click="secondQuirk = q.id">
+                    <span class="quirk-order" x-text="secondQuirk === q.id ? '1' : '+'" aria-hidden="true"></span>
+                    <span class="q-label" x-text="q.label"></span>
+                    <span class="q-preview" x-text="quirkPreview(q.id, 'cat')"></span>
+                  </button>
+                </li>
+              </template>
+            </ul>
+            <button class="primary adopt-submit" @click="adoptSecond()"
+                    :disabled="busy || !secondName.trim() || !secondQuirk">
+              bring it home
+            </button>
+          </div>
+        </div>
+      </template>
+      <hr>
+      <p class="tiny muted">what you call your partner — appears in the room memory and household labels (only on this device).</p>
+      <template x-for="name in partnerDisplayNames()" :key="name">
+        <div class="row" style="margin-top: 6px; gap: 8px">
+          <span style="min-width: 5em" x-text="name"></span>
+          <input class="input" type="text" :placeholder="'your name for ' + name" x-model="aliasDraft[name]" maxlength="32">
+          <button class="ghost" @click="setAlias(name, aliasDraft[name])">save</button>
+          <button class="ghost" x-show="aliasMap[name]" @click="setAlias(name, ''); aliasDraft[name] = ''">clear</button>
+        </div>
+      </template>
+      <p class="tiny muted" x-show="!partnerDisplayNames().length">no partner yet — your pair-name choice will appear here once they join.</p>
+      <hr>
+      <button
+        class="ghost danger-hold"
+        :class="{ 'is-holding': holdingAction === 'lock' }"
+        @pointerdown="startHold('lock')"
+        @pointerup="cancelHold()"
+        @pointerleave="cancelHold()"
+        @pointercancel="cancelHold()">
+        <span x-text="holdingAction === 'lock' ? 'keep holding...' : 'hold to lock this device'"></span>
+      </button>
+      <button
+        class="ghost danger-hold"
+        :class="{ 'is-holding': holdingAction === 'logout' }"
+        @pointerdown="startHold('logout')"
+        @pointerup="cancelHold()"
+        @pointerleave="cancelHold()"
+        @pointercancel="cancelHold()">
+        <span x-text="holdingAction === 'logout' ? 'keep holding...' : 'hold to log out'"></span>
+      </button>
+    </aside>
+
+  </section>
+
+  <!-- Fresh-deploy pill: soft, never auto-reloads. -->
+  <div class="fresh-version-pill" x-show="freshVersionAvailable" x-cloak x-transition>
+    <button @click="reloadForFreshVersion()">fresh woolroom — tap to refresh</button>
+    <button class="dismiss" @click="freshVersionAvailable = false" aria-label="dismiss">×</button>
+  </div>
+
+  <!-- First-session ambient narration. -->
+  <div class="onboarding-overlay"
+       x-show="view === 'scene' && onboardingStep > 0 && onboardingStep <= onboardingLines.length"
+       @click="dismissOnboarding()"
+       @keydown.escape.window="dismissOnboarding()"
+       x-cloak x-transition
+       role="dialog"
+       aria-modal="true"
+       aria-label="welcome to the room">
+    <button class="onboarding-close" @click.stop="dismissOnboarding()" aria-label="close">×</button>
+    <p class="onboarding-line" x-text="onboardingLines[onboardingStep - 1]"></p>
+    <p class="tiny muted onboarding-hint">tap to dismiss</p>
+    <p class="tiny muted onboarding-progress" x-text="`${onboardingStep} / ${onboardingLines.length}`"></p>
+  </div>
+
+  <!-- Bottom status. -->
+  <footer class="status tiny muted" x-text="status" aria-live="polite"></footer>
+</main>
+</body>
+</html>

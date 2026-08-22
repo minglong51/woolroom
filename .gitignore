@@ -1,0 +1,17 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.db
+tmp-review*.db
+*.db-journal
+*.db-shm
+*.db-wal
+dist/
+build/
+*.egg-info/
+.DS_Store
+node_modules/
+.gstack/
