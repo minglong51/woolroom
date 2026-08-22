@@ -2,7 +2,7 @@
 
 Single source of truth for the fx-mode vocabulary that flows from the server
 (scene_fx action/mood tables, quirk fx, http modifiers) to the client
-(wool.js scene + ACTION_FX_MODES echo-swallow, sound.js motifs), and for the
+(wool.js scene + fx echo-swallow, sound.js motifs), and for the
 shared-trace → ambient-cue mapping. It replaces the four drifting copies of
 this contract — see docs/design/HLD.md ("fx/room contract must version or
 every pack rots invisibly").
