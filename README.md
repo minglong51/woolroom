@@ -11,7 +11,12 @@ memory, seeded daily outings, a phrasebook keyed to how it actually feels —
 so it stays alive when the tab is closed and costs zero inference spend by
 default. An optional LLM lane (Anthropic, or a local model via Ollama)
 narrates richer utterances; it is opt-in, budget-capped, and the pet is
-fully itself without a key.
+fully itself without a key. The design rationale is written up in
+[a coherent virtual pet without an LLM](https://www.minglongpan.com/writing/a-coherent-virtual-pet-without-an-llm).
+
+**Visit a room right now:** [woolroom-demo.fly.dev](https://woolroom-demo.fly.dev)
+— tap *watch the room* to slip in as a read-only guest. No account, nothing
+to install; it is a real instance of the engine below, breathing on its own.
 
 There are no scores, streaks, meters, or notifications. That is not a
 setting — the rig has no surface for them.
@@ -77,6 +82,22 @@ hermetic: no services, no keys, no network.
 Every path above works with zero API keys. All configuration is environment
 variables; [.env.example](.env.example) documents each one, including the
 optional site-access password for a private deployment.
+
+### Guest visits
+
+A deployment can open a read-only window on its room: set
+`GUEST_ACCESS_ENABLED=true` and pin `GUEST_PET_ID` to a demo pet seeded with
+`scripts/seed_demo_pet.py`. Visitors watch a sanitized scene — only the
+pinned demo pet is ever resolvable, never a real household's room. The
+public demo above is exactly this.
+
+### Limits, by design
+
+One process, one household per instance. The live channel registry is
+in-process, the LLM budget cap is per-process, and SQLite has one writer —
+so a woolroom scales by giving each household its own small instance, not by
+clustering a big one. There is no multi-tenant mode and none planned; a
+home is not a platform.
 
 ## The three promises
 
