@@ -3,6 +3,8 @@
 **Anyone can have a pet that is really theirs on the internet — alive when
 nobody is looking, shared with their people, running in a home they own.**
 
+<img src=".github/assets/room-day.png" alt="the room on a weekday morning — biscuit, a marmalade cat, sitting on the rug between two lamps named for the two people who keep the room" />
+
 woolroom is a self-hostable shared ambient pet: one quiet animal in a small
 room, kept by two people. It runs on a deterministic brain — mood drift,
 memory, seeded daily outings, a phrasebook keyed to how it actually feels —
@@ -13,6 +15,16 @@ fully itself without a key.
 
 There are no scores, streaks, meters, or notifications. That is not a
 setting — the rig has no surface for them.
+
+<table>
+<tr>
+<td width="50%"><img src=".github/assets/room-night.png" alt="the same room after nine at night — dark walls, a moon where the button sun was, the cat asleep, one lamp still warm" /></td>
+<td width="50%"><img src=".github/assets/room-idle.gif" alt="a few quiet seconds of the room — a breath, a blink, a glance at the bowl" /></td>
+</tr>
+</table>
+
+*The room keeps its own hours, and it breathes whether or not anyone is
+watching.*
 
 v1 is the pair: one pet, the same soul on every screen, two humans sharing a
 room. No email, no passwords — your person joins by invite link and picks a
@@ -87,6 +99,8 @@ never code: no scripting, no CSS, no runtime download.
   every pose, plus the touch-hitbox overlay); `scripts/pack_lint.py
   <pack-dir>` runs the contract suite. If lint is green and the render board
   looks right, the pack works.
+
+<img src=".github/assets/pebble.png" width="300" alt="pebble, the example species, on the room floor — a smooth gray rock with dot eyes and a pale belly" />
 
 Packs live in their authors' own repositories. The community index is
 [woolroom-packs](https://github.com/minglong51/woolroom-packs) — one line per
