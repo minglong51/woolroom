@@ -8,20 +8,6 @@
 // figures.js as their own method group — see the note there about why
 // nothing here imports it (depth-1 module graph, on purpose).
 
-// Fx modes each local action can make the server broadcast (default fx +
-// mood overrides + quirk fx). Used to swallow the actor's own echo without
-// blocking the partner's mirror of the same moment.
-const ACTION_FX_MODES = {
-  greet: ["greet", "sigh_settle"],
-  pet: ["petting", "petting_melt", "flinch_away", "carry",
-    "petting_head", "petting_ear", "petting_tail", "petting_belly"],
-  feed: ["kibble"],
-  walk: ["leash_tug", "stash"],
-  call: ["call_ring", "carry"],
-  message: ["message_ping", "head_tilt", "carry"],
-  play: ["zoomie"],
-};
-
 export const sceneMethods = {
   // ── the door next door ──
   doorState() {
@@ -730,18 +716,18 @@ export const sceneMethods = {
         return;
       }
       switch (event.action) {
-        case "greet": await this._woolPerfGreet(false); break;
-        case "feed": await this._woolPerfFeed(false); break;
+        case "greet": await this._woolPerfGreet(); break;
+        case "feed": await this._woolPerfFeed(); break;
         case "walk":
           if (modes.has("threshold_refusal")) {
             await this._woolPerfThresholdWalk();
             consumedModes.add("threshold_refusal");
           } else {
-            await this._woolPerfWalk(false);
+            await this._woolPerfWalk();
           }
           break;
-        case "call": await this._woolPerfCall(false); break;
-        case "play": await this._woolPerfPlay(false); break;
+        case "call": await this._woolPerfCall(); break;
+        case "play": await this._woolPerfPlay(); break;
         case "message": {
           const lamp = event.actor_user_id && event.actor_user_id === this.user?.id
             ? "partner"
@@ -960,11 +946,11 @@ export const sceneMethods = {
     if (step.mode.startsWith("action:")) {
       const action = step.mode.slice(7);
       switch (action) {
-        case "greet": await this._woolPerfGreet(false); break;
-        case "feed": await this._woolPerfFeed(false); break;
-        case "walk": await this._woolPerfWalk(false); break;
-        case "call": await this._woolPerfCall(false); break;
-        case "play": await this._woolPerfPlay(false); break;
+        case "greet": await this._woolPerfGreet(); break;
+        case "feed": await this._woolPerfFeed(); break;
+        case "walk": await this._woolPerfWalk(); break;
+        case "call": await this._woolPerfCall(); break;
+        case "play": await this._woolPerfPlay(); break;
         case "message": {
           const lamp = event.actor_user_id && event.actor_user_id === this.user?.id
             ? "partner"
@@ -1021,11 +1007,6 @@ export const sceneMethods = {
     }
   },
 
-  // ── scene_fx: local actions log the modes they will echo back as ──
-  _woolLogActionFx(action) {
-    const now = Date.now();
-    for (const mode of ACTION_FX_MODES[action] || []) this._wool.fxLog[mode] = now;
-  },
 
   // A scene_fx arriving over WS is the partner's action asking to be SEEN
   // here. The fxLog window (the fx's own duration) swallows two kinds of
@@ -1042,10 +1023,10 @@ export const sceneMethods = {
     w.fxLog[fx.mode] = Date.now();
     if (!this.woolIsNight()) this._sndForMode(fx.mode);
     switch (fx.mode) {
-      case "greet": this._woolPerfGreet(false); break;
-      case "kibble": this._woolPerfFeed(false); break;
-      case "leash_tug": this._woolPerfWalk(false); break;
-      case "call_ring": this._woolPerfCall(false); break;
+      case "greet": this._woolPerfGreet(); break;
+      case "kibble": this._woolPerfFeed(); break;
+      case "leash_tug": this._woolPerfWalk(); break;
+      case "call_ring": this._woolPerfCall(); break;
       case "zoomie": this._woolPerfZoomies(fx.remaining_ms); break;
       case "petting": this._woolFxPetting(); break;
       case "petting_melt": case "petting_belly": this._woolFxMelt(); break;
@@ -1199,9 +1180,8 @@ export const sceneMethods = {
     if (this.woolIsNight()) { this._woolNightRefusal(); return; }
     this.act("greet");
   },
-  async _woolPerfGreet(fire) {
+  async _woolPerfGreet() {
     return this._woolPerform(async () => {
-      if (fire) { this._woolLogActionFx("greet"); this.act("greet"); }
       this._woolFlash("alert", 800);
       await this._woolWait(400);
       await this._woolTravel(0, 30, true);
@@ -1216,12 +1196,11 @@ export const sceneMethods = {
     if (this.woolIsNight()) { this._woolSay("the bowl can wait for morning.", 3000); return; }
     this.act("feed");
   },
-  async _woolPerfFeed(fire) {
+  async _woolPerfFeed() {
     return this._woolPerform(async () => {
       const ks = ["k1", "k2", "k3"].map((id) => document.getElementById(id));
       ks.forEach((k) => k && (k.style.opacity = 1));
       this._woolFlash("alert", 800);
-      if (fire) { this._woolLogActionFx("feed"); this.act("feed"); }
       await this._woolWait(600);
       await this._woolTravel(-96, 14, false);
       this._woolFlash("eating", 2300);
@@ -1242,14 +1221,13 @@ export const sceneMethods = {
     if (this.woolIsNight()) { this._woolSay(`${this._petPronoun()} sleeps. the ball keeps.`, 3000); return; }
     this.act("play");
   },
-  async _woolPerfPlay(fire) {
+  async _woolPerfPlay() {
     return this._woolPerform(async () => {
       clearTimeout(this._wool.ballResetTimer);
       this._wool.ballResetTimer = null;
       const ball = document.getElementById("roomball");
       if (ball) ball.style.transform = "translate(-160px, 10px) rotate(-200deg)";
       this._woolFlash("alert", 700);
-      if (fire) { this._woolLogActionFx("play"); this.act("play"); }
       await this._woolWait(400);
       await this._woolTravel(-30, 14, true);
       await this._woolFrame(420, (t) => this._woolSetGait(
@@ -1275,12 +1253,11 @@ export const sceneMethods = {
     if (this.woolIsNight()) { this._woolSay("walks are a daylight religion.", 3000); return; }
     this.act("walk");
   },
-  async _woolPerfWalk(fire) {
+  async _woolPerfWalk() {
     return this._woolPerform(async () => {
       const scene = document.getElementById("wool-scene");
       this._woolFlash("alert", 900);
       this._woolFlash("leashswing", 1200);
-      if (fire) { this._woolLogActionFx("walk"); this.act("walk"); }
       await this._woolWait(500);
       await this._woolTravel(150, -6, true);
       await this._woolWait(300);
@@ -1316,10 +1293,9 @@ export const sceneMethods = {
     if (this.woolIsNight()) { this._woolSay("mm. (one ear twitches toward you)", 3000); return; }
     this.act("call");
   },
-  async _woolPerfCall(fire) {
+  async _woolPerfCall() {
     return this._woolPerform(async () => {
       this._woolFlash("alert", 900);
-      if (fire) { this._woolLogActionFx("call"); this.act("call"); }
       await this._woolWait(400);
       await this._woolTravel(0, 34, true);
       this._woolEar(-5);
