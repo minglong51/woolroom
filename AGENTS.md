@@ -11,6 +11,7 @@ uv sync --extra dev                      # environment
 .venv/bin/python -m pytest tests -q      # tests — hermetic, no services/keys/network
 .venv/bin/python -m ruff check .         # lint (line length 100, py311)
 .venv/bin/uvicorn app.main:app --reload  # run locally (zero API keys needed)
+.venv/bin/python scripts/pack_new.py <species-id>           # scaffold a pack (stems renamed)
 .venv/bin/python scripts/pack_lint.py packs/pebble          # pack contract suite
 .venv/bin/python scripts/pack_render.py packs/pebble        # visual review board
 .venv/bin/python scripts/denylist_check.py                  # publish gate
@@ -50,9 +51,10 @@ does not belong in the suite.
 
 ## Authoring a pack (the loop)
 
-Full contract: [docs/packs.md](docs/packs.md). Short version: copy
-`packs/pebble`, rename ids (file stems are ids), edit temperament / coats /
-geometry / art / phrases / quirks / voice, then iterate
+Full contract: [docs/packs.md](docs/packs.md). Short version:
+`scripts/pack_new.py <id>` (copies `packs/pebble` with the stems renamed —
+file stems are ids, so a bare `cp -r` collides at boot), edit temperament /
+coats / geometry / art / phrases / quirks / voice, then iterate
 `pack_render` (eyeball) → `pack_lint` (contract) → boot with
 `PACK_PATHS=<dir>` (live). Lint green + render board correct = the pack
 works.

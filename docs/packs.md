@@ -11,11 +11,14 @@ The contract-test suite IS the authoring tool: if `pack_lint` is green and the
 ## The authoring loop
 
 ```sh
-cp -r packs/pebble packs/mole         # 1. copy the example pack
-$EDITOR packs/mole/pack.yaml          # 2. rename (name, author, license)
-$EDITOR packs/mole/species/pebble.yaml # 3. rename the files to your species id,
-$EDITOR packs/mole/species/pebble.svg #    edit temperament / coats / geometry / art
-$EDITOR packs/mole/phrases/pebble.yaml #   its voice (optional but recommended)
+.venv/bin/python scripts/pack_new.py mole  # 1. copy the example WITH the stems
+                                           #    renamed (ids come from file
+                                           #    stems — a bare cp collides
+                                           #    with pebble at boot)
+$EDITOR packs/mole/pack.yaml          # 2. author + license
+$EDITOR packs/mole/species/mole.yaml  # 3. temperament / coats / geometry
+$EDITOR packs/mole/species/mole.svg   #    the figure art
+$EDITOR packs/mole/phrases/mole.yaml  #    its voice (optional but recommended)
 $EDITOR packs/mole/quirks/*.yaml      #    its habits (optional)
 $EDITOR packs/mole/voice.yaml         #    coat labels + quirk preview copy
 

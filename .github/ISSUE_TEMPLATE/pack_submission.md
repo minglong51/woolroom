@@ -1,10 +1,14 @@
 ---
 name: Pack submission
-about: Share a content pack you authored — packs live in your own repo and
-  are shared as links; the community index opens at launch
+about: The community index is live — submit your pack as a one-line PR to
+  woolroom-packs (this issue form is the fallback if a PR is not your thing)
 title: "pack: <name>"
 labels: pack
 ---
+
+> **The normal path is a PR, not this issue:** add one line to the table in
+> [woolroom-packs](https://github.com/minglong51/woolroom-packs) — see its
+> README for the three-step loop. Use this issue only if you can't open a PR.
 
 **Pack name and species id**
 
