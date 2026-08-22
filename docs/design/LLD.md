@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-08-22 (first-run bootstrap, sanitizer DTD gate, entrypoint pre-flight)
+**Refreshed:** 2026-08-22 (trust seams: gate-over-default-secret refusal, auth-failure throttle, security headers, fail-closed LLM cap)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -20,10 +20,17 @@ code is right and this doc is stale.
   Prod validators: strong secret required, only metered `sk-ant-api` keys,
   guest mode requires a pinned pet.
 - `main.py` — FastAPI entry. Lifespan: `load_packs(settings.pack_paths)`
-  first (fail-closed; boot refuses on gate violations), dev-only
+  first (fail-closed; boot refuses on gate violations), boot refusal when
+  `SITE_PASSWORD`/guest access is enabled over the default `SECRET_KEY`
+  (the gate cookies would be forgeable in any ENV), dev-only
   `create_all` + tolerant column ALTERs (prod schema is alembic-only),
   scheduler start/stop. Outer site-access middleware (site cookie, guest
-  cookie allowlist). Serves `/` with `INDEX_VOICE` substituted and
+  cookie allowlist), baseline security headers (`setdefault`, stricter
+  per-route policies win), and an auth-failure throttle: failed (401/403)
+  attempts on `POST /api/site-access` and `/admin/*` are counted per
+  client IP in-process (single-worker by design) — 5 and 20 per 15
+  minutes respectively, then 429; successes never count.
+  Serves `/` with `INDEX_VOICE` substituted and
   `?v=<APP_VERSION>` cache-busted statics (immutable when the version
   matches, revalidate otherwise); `/api/voice` and `/api/packs` ride the
   same two cache policies. `APP_VERSION` = `GIT_SHA` or newest static mtime.
@@ -60,7 +67,10 @@ code is right and this doc is stale.
   user message (mood, recent buffer).
 - `validator.py` — rejects chatbot-slop (banned substrings, >80 chars,
   questions-back, emoji); the phrasebook is the floor.
-- `llm_log.py` — best-effort `llm_calls` rows (never raises).
+- `llm_log.py` — best-effort `llm_calls` rows (never raises) plus an
+  in-process attempt counter; `calls_today` fails CLOSED (reports at least
+  the cap when the DB count is unavailable) so the budget circuit-breaker
+  can never fail open on a metered key.
 - `pet_state.py` — the one builder of the `pet_state` payload for REST, WS
   initial push, and scheduler broadcasts; resolves the guest demo pet.
 - `scene_fx.py` — short-lived in-process scene effects (quirk visibility).

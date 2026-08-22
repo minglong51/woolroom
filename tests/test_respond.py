@@ -68,7 +68,13 @@ async def test_message_can_use_llm_for_short_reply(monkeypatch):
     async def _ok(*args, **kwargs):
         return "mm. still here."
 
+    async def _zero_calls(pet_id):
+        return 0
+
     monkeypatch.setattr(respond.__globals__["client"], "complete", _ok)
+    # No DB behind this unit test; calls_today fails CLOSED without one, and
+    # the budget gate is not this test's subject.
+    monkeypatch.setattr(respond.__globals__["llm_log"], "calls_today", _zero_calls)
 
     res = await respond(
         _pet(arousal=58, valence=66),

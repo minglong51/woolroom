@@ -5,8 +5,10 @@ from __future__ import annotations
 import logging
 import os
 import re
+from collections import deque
 from contextlib import asynccontextmanager
 from pathlib import Path
+from time import monotonic
 from urllib.parse import parse_qs, quote
 
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -165,6 +167,31 @@ def _site_access_exempt(path: str) -> bool:
     )
 
 
+# Auth-failure throttle for the two secret-guessing surfaces: the site
+# password and the admin token. Counts FAILURES only (401/403), per client
+# IP, in-process — correct here because the deployment is single-worker by
+# design. Successes never count, so a fumbled password costs a human
+# nothing and a dictionary run dies in its first seconds.
+THROTTLE_WINDOW_S = 900
+THROTTLE_LIMITS = {"site-access": 5, "admin": 20}
+
+
+def _throttle_scope(path: str, method: str) -> str | None:
+    if path.startswith("/admin/"):
+        return "admin"
+    if path == "/api/site-access" and method == "POST":
+        return "site-access"
+    return None
+
+
+def _failures(bucket: dict, key: tuple[str, str]) -> deque:
+    q = bucket.setdefault(key, deque())
+    cutoff = monotonic() - THROTTLE_WINDOW_S
+    while q and q[0] < cutoff:
+        q.popleft()
+    return q
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _configure_logging()
@@ -175,6 +202,16 @@ async def lifespan(app: FastAPI):
     ):
         raise RuntimeError(
             "SECRET_KEY is unset or still the default in prod; refusing to start"
+        )
+    # The site-access and guest cookies are signed with SECRET_KEY too; with
+    # the dev default they are forgeable offline in any ENV, so a password
+    # gate over a default secret would be theater. Refuse to pretend.
+    if (settings.site_password or settings.guest_access_enabled) and (
+        not settings.secret_key or settings.secret_key == DEFAULT_DEV_SECRET
+    ):
+        raise RuntimeError(
+            "SITE_PASSWORD / guest access require a real SECRET_KEY (their "
+            "cookies are signed with it); set SECRET_KEY to a random value"
         )
     # Woolroom content packs (format v1): load + register species, phrase
     # overlays, quirks, and voice BEFORE any request is served; the
@@ -200,6 +237,34 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="woolroom", lifespan=lifespan)
+    app.state.auth_failures = {}
+
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):
+        resp = await call_next(request)
+        # setdefault: routes that set a stricter policy (e.g. the recovery
+        # redirects' Referrer-Policy) keep theirs.
+        resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+        resp.headers.setdefault("X-Frame-Options", "DENY")
+        resp.headers.setdefault("Referrer-Policy", "same-origin")
+        return resp
+
+    @app.middleware("http")
+    async def auth_failure_throttle(request: Request, call_next):
+        scope = _throttle_scope(request.url.path, request.method)
+        if scope is None:
+            return await call_next(request)
+        ip = request.client.host if request.client else "unknown"
+        failures = _failures(app.state.auth_failures, (scope, ip))
+        if len(failures) >= THROTTLE_LIMITS[scope]:
+            return JSONResponse(
+                {"detail": "too many attempts — the door needs a quiet quarter hour"},
+                status_code=429,
+            )
+        resp = await call_next(request)
+        if resp.status_code in (401, 403):
+            failures.append(monotonic())
+        return resp
 
     @app.middleware("http")
     async def site_access_gate(request: Request, call_next):

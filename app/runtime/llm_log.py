@@ -19,8 +19,27 @@ from dataclasses import dataclass
 
 from sqlalchemy import insert
 
+from app.config import settings
 from app.storage.db import SessionLocal
 from app.storage.models import LLMCall
+from app.time import utc_now
+
+# In-process attempt counter, {pet_id: (utc_date_iso, count)}. The DB rows
+# are best-effort observability; this counter is what keeps the daily budget
+# cap honest when the DB write or read fails — the cap must never fail open
+# on a metered key. Single-worker deployment makes process-local correct.
+_attempts_today: dict[str | None, tuple[str, int]] = {}
+
+
+def _bump_attempts(pet_id: str | None) -> None:
+    today = utc_now().date().isoformat()
+    day, count = _attempts_today.get(pet_id, (today, 0))
+    _attempts_today[pet_id] = (today, (count if day == today else 0) + 1)
+
+
+def _attempts(pet_id: str | None) -> int:
+    day, count = _attempts_today.get(pet_id, ("", 0))
+    return count if day == utc_now().date().isoformat() else 0
 
 # Bump on every meaningful prompt or validator change. The hash captures the
 # exact (system, user) bytes that hit the model; the version captures
@@ -54,6 +73,7 @@ def hash_prompt(system_prompt: str, user_msg: str) -> str:
 
 
 async def record(rec: CallRecord) -> None:
+    _bump_attempts(rec.pet_id)
     try:
         async with SessionLocal() as session:
             await session.execute(
@@ -107,23 +127,26 @@ async def measure(
 
 
 async def calls_today(pet_id: str | None) -> int:
-    """LLM calls recorded for this pet since UTC midnight. Powers the daily
-    budget circuit-breaker in respond(). Best-effort: fails open (returns 0) —
-    observability must never break a request."""
+    """LLM attempts for this pet since UTC midnight. Powers the daily budget
+    circuit-breaker in respond(). Fails CLOSED: if the DB count is
+    unavailable, reports at least the cap so the respond path falls back to
+    the phrasebook — indistinguishable to the user, and a metered key never
+    becomes uncapped spend because an observability table hiccuped."""
     try:
         from sqlalchemy import func, select
 
         async with SessionLocal() as session:
-            return (
+            counted = (
                 await session.execute(
                     select(func.count(LLMCall.id))
                     .where(LLMCall.pet_id == pet_id)
                     .where(func.date(LLMCall.ts) == func.date("now"))
                 )
             ).scalar_one()
+        return max(counted, _attempts(pet_id))
     except Exception:
-        log.exception("llm_log: failed to count today's calls (failing open)")
-        return 0
+        log.exception("llm_log: failed to count today's calls (failing closed)")
+        return max(settings.llm_daily_call_cap, _attempts(pet_id))
 
 
 async def update_verdict(prompt_hash: str, verdict: str) -> None:
