@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-08-22 (quirk emit-type vocabulary; earlier today: pack_new scaffolder, trust seams, first-run bootstrap)
+**Refreshed:** 2026-08-22 (admin router split from http.py; earlier today: emit vocabulary, pack_new, trust seams, first-run bootstrap)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -127,11 +127,14 @@ code is right and this doc is stale.
   pairing (`/api/invite`, `/join/{token}`, `/api/join-pending`,
   `/r/{token}` recovery), `/api/action` (the interaction verb),
   `/api/visit(+end)`, aliases/coat, memory pin/unseen/read, guest
-  `/api/guest/scene`, `/admin/*` (token-gated: users, merge, delete,
-  recovery, llm stats). Signup is invite-only (`OPEN_SIGNUP` off) with one
+  `/api/guest/scene`. Signup is invite-only (`OPEN_SIGNUP` off) with one
   designed exception: an empty users table admits the first human — a fresh
   deployment is otherwise unreachable — then the gate closes itself.
   `/api/me` reports the same effective openness.
+- `api/admin.py` — `/admin/*` operator routes (token-gated via
+  `X-Admin-Token`; empty `ADMIN_TOKEN` disables): user list/delete, pet
+  merge/delete, recovery-link regenerate/revoke, llm stats. Split from
+  `http.py` so the ops surface and the product surface read apart.
 - `api/ws.py` — `/ws` scene socket: initial `pet_state` push, then
   `pet_state`/`presence` messages; cookie-authed.
 - `api/deps.py` — session-cookie user/pet dependencies.
