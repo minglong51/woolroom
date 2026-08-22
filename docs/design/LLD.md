@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-08-22 (pack_new scaffolder; earlier today: trust seams, first-run bootstrap, sanitizer DTD gate)
+**Refreshed:** 2026-08-22 (quirk emit-type vocabulary; earlier today: pack_new scaffolder, trust seams, first-run bootstrap)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -36,8 +36,11 @@ code is right and this doc is stale.
   same two cache policies. `APP_VERSION` = `GIT_SHA` or newest static mtime.
 - `time.py` — shared UTC helpers (naive-UTC storage convention).
 - `room_contract.py` — `FX_VOCAB_VERSION` + `FX_MODES` (the only legal
-  scene-fx modes) + `TRACE_CUE_MAP` (shared-trace → ambient cue). Bump the
-  version on any mode add/remove/rename; unknown modes are loader errors.
+  scene-fx modes) + `TRACE_CUE_MAP` (shared-trace → ambient cue) +
+  `QUIRK_EMIT_TYPES` (the only legal quirk emit frame types — emits ride
+  the protocol socket, so an open string would let a pack spoof frames).
+  Bump the version on any mode add/remove/rename; unknown modes and
+  unknown emit types are loader errors.
 
 ## `app/engine/` — pure deterministic logic (no I/O)
 

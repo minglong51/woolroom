@@ -47,7 +47,8 @@ does not belong in the suite.
 - **No gamification surface.** No scores, streaks, meters, or notification
   plumbing — the rig deliberately has no place to put them.
 - **The fx vocabulary versions.** `app/room_contract.py` owns
-  `FX_VOCAB_VERSION`; unknown modes are loader errors, not no-ops.
+  `FX_VOCAB_VERSION` and the quirk emit vocabulary `QUIRK_EMIT_TYPES`;
+  unknown modes and unknown emit types are loader errors, not no-ops.
 
 ## Authoring a pack (the loop)
 

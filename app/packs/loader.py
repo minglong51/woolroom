@@ -50,7 +50,7 @@ from app.data.species import SPECIES_REGISTRY, register_species
 from app.data.voice import CLIENT_VOICE
 from app.engine import quirks as quirk_engine
 from app.packs.sanitize import SvgSanitizeError, sanitize_svg
-from app.room_contract import FX_MODES, FX_VOCAB_VERSION
+from app.room_contract import FX_MODES, FX_VOCAB_VERSION, QUIRK_EMIT_TYPES
 
 # ────────── caps and vocabularies (the gates' numbers) ──────────
 
@@ -580,6 +580,13 @@ def _validate_quirk_rule(quirk_id: str, channel: str, rule: Any) -> None:
         if not isinstance(emit, dict):
             raise PackQuirkError(f"{where}: events rules need an 'emit' mapping")
         _check_str(emit.get("type"), f"{where} emit 'type'", PackQuirkError, cap=64)
+        # Emits ride the same socket as the protocol's own frames; an open
+        # type would let a pack spoof pet_state/presence. Vocabulary only.
+        if emit["type"] not in QUIRK_EMIT_TYPES:
+            raise PackQuirkError(
+                f"{where} emit type {emit['type']!r} is not in the emit vocabulary "
+                f"(QUIRK_EMIT_TYPES: {sorted(QUIRK_EMIT_TYPES)})"
+            )
         if not isinstance(emit.get("data"), dict):
             raise PackQuirkError(f"{where} emit 'data' must be a mapping")
     if "scene_fx" in rule:

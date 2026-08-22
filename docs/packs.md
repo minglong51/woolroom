@@ -175,7 +175,10 @@ behavior:                 # channels: pose | action | scheduler | events
   (`{mode, duration_ms}` — mode must come from the engine's fx vocabulary
   `FX_MODES` in `app/room_contract.py`: `greet`, `petting`, `zoomie`,
   `warm_spot`, …; an unknown mode is a loader error).
-- `events` rules `emit: {type, data}` room events.
+- `events` rules `emit: {type, data}` room events — `type` must come from
+  the emit vocabulary `QUIRK_EMIT_TYPES` in `app/room_contract.py`
+  (currently just `response`); an unknown type is a loader error, because
+  emits ride the same socket as the protocol's own frames.
 
 Quirks are **prose + thresholds over canned fx modes** — choreography itself
 is not authorable in v1 (see limits below). Each quirk also wants
