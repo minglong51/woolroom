@@ -17,6 +17,16 @@ if [ -n "${BUCKET_NAME:-}" ]; then
   litestream restore -if-db-not-exists -if-replica-exists /data/woolroom.db
 fi
 
+# Config pre-flight: surface a settings refusal as a readable remedy instead
+# of a raw validation traceback out of alembic (which imports app.config).
+if ! python -c "import app.config"; then
+  echo "" >&2
+  echo "woolroom: configuration refused (validation error above)." >&2
+  echo "Most common on fly.io: SECRET_KEY unset while ENV=prod. Fix with:" >&2
+  echo "  fly secrets set SECRET_KEY=\"\$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')\"" >&2
+  exit 1
+fi
+
 # Idempotent: alembic upgrade head is a no-op on an already-current schema.
 python scripts/migrate.py
 

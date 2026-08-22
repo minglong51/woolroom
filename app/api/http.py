@@ -286,7 +286,12 @@ async def start(
         _clear_pending_invite_cookie(resp)
         background_tasks.add_task(_broadcast_joined_pet, joined_pet.id)
     else:
-        if not settings.open_signup:
+        # Fresh-deployment bootstrap: the first human is admitted while the
+        # users table is empty (otherwise a new self-hosted room is
+        # unreachable — invites can only be minted by an existing pet owner).
+        # Any existing user closes the gate; a returning user's DB is never
+        # empty, so the duplicate-account rationale for invite-only holds.
+        if not settings.open_signup and await repo.user_count(session) > 0:
             raise HTTPException(
                 status_code=403,
                 detail="invite required — ask your partner for a link, or use your saved login bookmark",
@@ -358,7 +363,9 @@ async def me(
             "user": None,
             "pet": None,
             "pending_invite": pending_invite,
-            "open_signup": settings.open_signup,
+            # Effective openness: mirrors the /api/start bootstrap so the
+            # landing page shows the begin form on a fresh deployment.
+            "open_signup": settings.open_signup or await repo.user_count(session) == 0,
             "guest": False,
         }
     await repo.touch_user(session, user)

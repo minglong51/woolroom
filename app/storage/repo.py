@@ -5,7 +5,7 @@ from __future__ import annotations
 import secrets
 from datetime import datetime, timedelta
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -55,6 +55,11 @@ async def create_user(session: AsyncSession, display_name: str) -> User:
 
 async def get_user(session: AsyncSession, user_id: str) -> User | None:
     return await session.get(User, user_id)
+
+
+async def user_count(session: AsyncSession) -> int:
+    result = await session.execute(select(func.count()).select_from(User))
+    return int(result.scalar_one())
 
 
 async def touch_user(session: AsyncSession, user: User) -> None:

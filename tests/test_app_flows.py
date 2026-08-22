@@ -496,6 +496,12 @@ def test_start_without_pending_invite_is_rejected_in_invite_only_mode(
 ) -> None:
     app = _load_app(tmp_path, monkeypatch, open_signup=False)
     with TestClient(app) as client:
+        # Fresh-deployment bootstrap: the very first human is admitted even in
+        # invite-only mode (a new self-hosted room is otherwise unreachable).
+        first = client.post("/api/start", json={"display_name": "Ash"})
+        assert first.status_code == 200
+        # Any existing user closes the gate.
+        client.cookies.clear()
         resp = client.post("/api/start", json={"display_name": "Wren"})
         assert resp.status_code == 403
 
