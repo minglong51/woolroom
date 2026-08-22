@@ -15,7 +15,7 @@
   --bg: #efe8d8;
   --panel: #f7f1e3;
   --ink: #4a3c2c;
-  --muted: #8a7b64;
+  --muted: #6e6152; /* 4.9:1 on --bg — keep AA when retuning */
   --line: rgba(110, 90, 72, 0.16);
   --hair: rgba(110, 90, 72, 0.10);
   --accent: #5a4636;

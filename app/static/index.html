@@ -559,8 +559,9 @@
         </svg>
 
         <!-- speech as breath: the cat's line floats in the room, then fades.
-             History stays reachable in the memory drawer. -->
-        <p class="utter" :class="{ show: woolLine || lastResponse }"
+             History stays reachable in the memory drawer. aria-live: the
+             pet's speech is the product's core output — announce it. -->
+        <p class="utter" aria-live="polite" :class="{ show: woolLine || lastResponse }"
            x-text="woolLine || (lastResponse ? lastResponse.text : '')"></p>
 
         <button type="button" class="whisper" x-show="!showComposer && !guest"
