@@ -24,8 +24,9 @@ does not belong in the suite.
 ## Layout
 
 - `app/` — the application: `engine/` (mood, aging, outings, quirk
-  interpreter — pure deterministic logic), `runtime/` (respond pipeline,
-  prompt, validator, scene fx), `data/` (phrase/voice/species/quirk base
+  interpreter — pure deterministic logic), `runtime/` (action
+  orchestration, respond pipeline, prompt, validator, scene fx),
+  `data/` (phrase/voice/species/quirk base
   tables — content modules), `packs/` (loader, sanitizer, lint), `api/`
   (REST + WebSocket + token-gated admin), `channels/`, `memory/`,
   `scheduler/`, `storage/`, `auth/`, `static/` (the room client),

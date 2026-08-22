@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-08-22 (admin router split from http.py; earlier today: emit vocabulary, pack_new, trust seams, first-run bootstrap)
+**Refreshed:** 2026-08-22 (perform_action extracted to runtime/actions.py; earlier today: admin split, emit vocabulary, pack_new, trust seams)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -59,6 +59,12 @@ code is right and this doc is stale.
 
 ## `app/runtime/` — the respond pipeline and live scene state
 
+- `actions.py` — the action orchestration `/api/action` delegates to
+  (`ActionIn` + `perform_action`): HMAC-fingerprinted `origin_id`
+  idempotency receipts, the buffer write, mood nudge + quirk effect,
+  scene-fx modifier resolution, milestone promotion, `respond()`, and the
+  post-commit room broadcasts. Raises `HTTPException` — its 409/422
+  shapes are the endpoint's contract.
 - `respond.py` — the only entry routes call: ignore check (sleeping /
   `ignore_rate`) → LLM attempt → validator → phrasebook fallback;
   utterance rate limit (≤1 per pet per 5 min; `*...*` body lines exempt).
@@ -127,7 +133,9 @@ code is right and this doc is stale.
   pairing (`/api/invite`, `/join/{token}`, `/api/join-pending`,
   `/r/{token}` recovery), `/api/action` (the interaction verb),
   `/api/visit(+end)`, aliases/coat, memory pin/unseen/read, guest
-  `/api/guest/scene`. Signup is invite-only (`OPEN_SIGNUP` off) with one
+  `/api/guest/scene`. `/api/action` holds the mutation guard and
+  delegates to `runtime/actions.py`. Signup is invite-only
+  (`OPEN_SIGNUP` off) with one
   designed exception: an empty users table admits the first human — a fresh
   deployment is otherwise unreachable — then the gate closes itself.
   `/api/me` reports the same effective openness.
