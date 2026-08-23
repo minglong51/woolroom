@@ -240,7 +240,9 @@ def test_recovery_link_rebinds_same_user_on_new_client(tmp_path: Path, monkeypat
         me = client.get("/api/me")
         assert me.status_code == 200
         payload = me.json()
-        recovery_path = urlparse(payload["recovery_url"]).path
+        recovery_path = urlparse(
+            client.get("/api/recovery-url").json()["recovery_url"]
+        ).path
         user_id = payload["user"]["id"]
 
         client.cookies.clear()
@@ -302,7 +304,7 @@ def test_admin_regenerate_recovery_returns_fresh_url(
         # Seed a user + pet.
         _start_and_adopt(setup_client, "Wren", "Purl")
         before_me = setup_client.get("/api/me").json()
-        before_url = before_me["recovery_url"]
+        before_url = setup_client.get("/api/recovery-url").json()["recovery_url"]
         original_user_id = before_me["user"]["id"]
 
         # Admin requests fresh recovery for display_name "Wren".
@@ -343,7 +345,7 @@ def test_admin_revoke_recovery_invalidates_all_user_tokens(
 
     with TestClient(app) as setup_client, TestClient(app) as caller:
         _start_and_adopt(setup_client, "Wren", "Purl")
-        first_url = setup_client.get("/api/me").json()["recovery_url"]
+        first_url = setup_client.get("/api/recovery-url").json()["recovery_url"]
         # Mint a second URL so we know revoke kills BOTH.
         resp = caller.post(
             "/admin/regenerate-recovery",
@@ -413,8 +415,9 @@ def test_recovery_link_with_matching_session_is_silent(tmp_path: Path, monkeypat
 
     with TestClient(app) as client:
         _start_and_adopt(client, "Ash", "Purl")
-        me = client.get("/api/me")
-        recovery_path = urlparse(me.json()["recovery_url"]).path
+        recovery_path = urlparse(
+            client.get("/api/recovery-url").json()["recovery_url"]
+        ).path
 
         before = client.cookies.get("woolroom_session")
 
@@ -433,7 +436,7 @@ def test_recovery_link_with_other_user_session_is_rejected(
 
     with TestClient(app) as ash, TestClient(app) as wren:
         _start_and_adopt(ash, "Ash", "Purl")
-        ash_recovery = urlparse(ash.get("/api/me").json()["recovery_url"]).path
+        ash_recovery = urlparse(ash.get("/api/recovery-url").json()["recovery_url"]).path
 
         wren.post("/api/start", json={"display_name": "Wren"})
 
@@ -550,8 +553,9 @@ def test_recovery_link_persists_across_uses(tmp_path: Path, monkeypatch) -> None
 
     with TestClient(app) as client:
         _start_and_adopt(client, "Ash", "Purl")
-        me = client.get("/api/me")
-        original_path = urlparse(me.json()["recovery_url"]).path
+        original_path = urlparse(
+            client.get("/api/recovery-url").json()["recovery_url"]
+        ).path
 
         client.cookies.clear()
 
@@ -560,7 +564,13 @@ def test_recovery_link_persists_across_uses(tmp_path: Path, monkeypatch) -> None
 
         rebound_me = client.get("/api/me")
         assert rebound_me.status_code == 200
-        assert urlparse(rebound_me.json()["recovery_url"]).path == original_path
+        # Persistence check now reads the dedicated endpoint — /api/me no
+        # longer carries the credential.
+        assert "recovery_url" not in rebound_me.json()
+        assert (
+            urlparse(client.get("/api/recovery-url").json()["recovery_url"]).path
+            == original_path
+        )
 
         client.cookies.clear()
 

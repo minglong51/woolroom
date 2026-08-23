@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-08-22 (perform_action extracted to runtime/actions.py; earlier today: admin split, emit vocabulary, pack_new, trust seams)
+**Refreshed:** 2026-08-22 (recovery URL on demand; earlier today: perform_action extraction, admin split, emit vocabulary, trust seams)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -131,7 +131,8 @@ code is right and this doc is stale.
 - `api/http.py` — REST: `/healthz`, `/api/start|logout|me`, adopt flow
   (`/api/adopt`, `/api/room`, `/api/adopt-second`, `/api/second-quirk`),
   pairing (`/api/invite`, `/join/{token}`, `/api/join-pending`,
-  `/r/{token}` recovery), `/api/action` (the interaction verb),
+  `/r/{token}` recovery, `/api/recovery-url` — the login bookmark on
+  demand; `/api/me` deliberately does not carry it), `/api/action` (the interaction verb),
   `/api/visit(+end)`, aliases/coat, memory pin/unseen/read, guest
   `/api/guest/scene`. `/api/action` holds the mutation guard and
   delegates to `runtime/actions.py`. Signup is invite-only
