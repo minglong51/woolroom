@@ -21,6 +21,11 @@ COPY migrations ./migrations
 COPY scripts ./scripts
 COPY litestream.yml /etc/litestream.yml
 
+# The runtime drops to this user (the entrypoint re-execs itself after
+# fixing volume ownership — fly volumes mount root-owned). Code stays
+# root-owned read-only; only the data locations become writable.
+RUN useradd --create-home --uid 1000 app
+
 EXPOSE 8000
 
 # Boot order lives in scripts/docker-entrypoint.sh: litestream restore +

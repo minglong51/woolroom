@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-08-22 (recovery URL on demand; earlier today: perform_action extraction, admin split, emit vocabulary, trust seams)
+**Refreshed:** 2026-08-22 (non-root container; earlier today: recovery on demand, perform_action extraction, trust seams)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -211,10 +211,13 @@ carry no independent contract.
   poses, hitbox overlay against the pettable rect. Loads via the real
   loader.
 - `migrate.py` — `alembic upgrade head` (container startup).
-- `docker-entrypoint.sh` — container boot: litestream restore + replicate
-  only when `BUCKET_NAME` is set, config pre-flight (a settings refusal
+- `docker-entrypoint.sh` — container boot: starts as root only to chown
+  the writable locations (`/app` dir non-recursively, `/data` when
+  mounted — fly volumes arrive root-owned), then re-execs itself as the
+  `app` user (uid 1000) via runuser; litestream restore + replicate only
+  when `BUCKET_NAME` is set, config pre-flight (a settings refusal
   prints a one-line remedy instead of a raw validation traceback),
-  migrate, single-worker uvicorn.
+  migrate, single-worker uvicorn. Code stays root-owned read-only.
 - `seed_demo_pet.py` — creates the read-only guest-mode demo pet
   (idempotent) and prints its id for `GUEST_PET_ID`.
 - `eval.py` — eval harness CLI: `run` / `diff` / `sessions`.
