@@ -9,6 +9,9 @@ import { apiMethods } from "./js/api.js";
 import { quirkMethods } from "./js/quirks.js";
 import { wsMethods } from "./js/ws.js";
 import { sceneMethods } from "./js/wool.js";
+import { woolVisitMethods } from "./js/woolvisits.js";
+import { woolEventMethods } from "./js/woolevents.js";
+import { woolFxMethods } from "./js/woolfx.js";
 import { figureMethods } from "./js/figures.js";
 import { soundMethods } from "./js/sound.js";
 
@@ -48,6 +51,9 @@ function woolroom() {
     ...quirkMethods,
     ...wsMethods,
     ...sceneMethods,
+    ...woolVisitMethods,
+    ...woolEventMethods,
+    ...woolFxMethods,
     ...figureMethods,
     ...soundMethods,
   };

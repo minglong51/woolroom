@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-08-22 (non-root container; earlier today: recovery on demand, perform_action extraction, trust seams)
+**Refreshed:** 2026-08-22 (wool.js split along its seams; earlier today: non-root container, recovery on demand, trust seams)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -180,7 +180,13 @@ code is right and this doc is stale.
   site-password page. `style.css` — the room's look + rig animation classes.
   `favicon.svg` — the cat mark. `app.js` — boot glue.
 - `js/state.js` + `js/api.js` — Alpine store and REST/WS client calls.
-- `js/wool.js` — the scene renderer: poses, fx modes, trace cues, presence.
+- `js/wool.js` — the scene core: boot, the light-not-dye clock, motion
+  primitives and locomotion, touch resolution, presentation reads
+  (traces, rig style, poses). Its former siblings, same component
+  `this`: `js/woolvisits.js` (the door next door + playdate
+  choreography), `js/woolevents.js` (scene-event dedupe, return cues,
+  the drain queue and plan runner), `js/woolfx.js` (fx primitives +
+  the verb performances).
 - `js/figures.js` — figure art + the rig class contract (the builtin cat;
   pack figures satisfy the same contract) and coat palette application.
 - `js/sound.js` — WebAudio synth: per-species motifs (the cat voice) and
