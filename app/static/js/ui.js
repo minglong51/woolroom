@@ -43,6 +43,11 @@ export const uiMethods = {
       this.bookmarkAcknowledged = true;
       try { localStorage.setItem("woolroom_bookmark_ack", "1"); } catch (_) { /* */ }
     },
+
+    async revealRecovery() {
+      if (!this.recoveryUrl) await this.loadRecoveryUrl();
+      this.showRecovery = true;
+    },
     // Hold-to-confirm: ~1.5s press to fire a destructive action.
     // The CSS .danger-hold::before fill-bar provides the visible feedback.
     startHold(action) {

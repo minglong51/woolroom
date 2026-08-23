@@ -45,7 +45,12 @@ export const apiMethods = {
       this.activePetId = data.active_pet_id || data.pet?.id || null;
       this.pendingInvite = data.pending_invite || null;
       this.openSignup = !!data.open_signup;
-      this.recoveryUrl = data.recovery_url;
+      // The recovery link is a credential: /api/me no longer carries it.
+      // Fetch it only while the bookmark card still needs it; the settings
+      // reveal fetches on demand.
+      if (data.user && !this.bookmarkAcknowledged && !this.recoveryUrl) {
+        await this.loadRecoveryUrl();
+      }
       if (!this.user) {
         // No session — a guest-cookie visitor still gets the room, read-only.
         if (this.guest) { await this.loadGuestScene(); return; }
@@ -74,6 +79,13 @@ export const apiMethods = {
       const r = await fetch("/api/quirks");
       const data = await r.json();
       this.quirks = data.quirks;
+    },
+
+    async loadRecoveryUrl() {
+      try {
+        const r = await fetch("/api/recovery-url", { credentials: "same-origin" });
+        if (r.ok) this.recoveryUrl = (await r.json()).recovery_url;
+      } catch (_) { /* the reveal button retries */ }
     },
 
     async loadGuestScene() {

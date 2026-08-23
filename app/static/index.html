@@ -735,7 +735,7 @@
       <h3>settings</h3>
       <p class="tiny muted">recovery link — opening it on a new device rebinds your session. don't share it.</p>
       <div x-show="!showRecovery" x-cloak>
-        <button class="ghost" @click="showRecovery = true" :disabled="!recoveryUrl">reveal recovery link</button>
+        <button class="ghost" @click="revealRecovery()" :disabled="guest">reveal recovery link</button>
       </div>
       <div x-show="showRecovery" x-cloak>
         <code class="wrap" x-text="recoveryUrl"></code>

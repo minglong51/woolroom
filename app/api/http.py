@@ -345,7 +345,6 @@ async def me(
     pets = await repo.get_pets_for_user(session, user.id)
     pet = await repo.resolve_active_pet(session, user)
     pet_dict = await build_scene_payload(session, pet, current_user_id=user.id) if pet else None
-    recovery_token = await repo.recovery_token_for(session, user.id)
     return {
         "user": {
             "id": user.id,
@@ -365,9 +364,21 @@ async def me(
         "pending_invite": pending_invite,
         "open_signup": settings.open_signup,
         "guest": False,
-        "recovery_url": (
-            _absolute_url(request, f"/r/{recovery_token}") if recovery_token else None
-        ),
+    }
+
+
+@router.get("/api/recovery-url")
+async def recovery_url(
+    request: Request,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(db),
+) -> dict:
+    """The user's own login bookmark, on demand. A credential, so it rides
+    its own endpoint instead of every /api/me — the client asks only while
+    the bookmark card still needs it, or on explicit reveal."""
+    token = await repo.recovery_token_for(session, user.id)
+    return {
+        "recovery_url": _absolute_url(request, f"/r/{token}") if token else None,
     }
 
 
