@@ -24,12 +24,13 @@ setting — the rig has no surface for them.
 <table>
 <tr>
 <td width="50%"><img src=".github/assets/room-night.png" alt="the same room after nine at night — dark walls, a moon where the button sun was, the cat asleep, one lamp still warm" /></td>
-<td width="50%"><img src=".github/assets/room-idle.gif" alt="a few quiet seconds of the room — a breath, a blink, a glance at the bowl" /></td>
+<td width="50%"><img src=".github/assets/join-loop.gif" alt="twenty seconds of the join: the room waits with one key, the second lamp takes Wren's name, and biscuit greets the hand that just walked in — first-greet and first-pet milestone cards and all" /></td>
 </tr>
 </table>
 
 *The room keeps its own hours, and it breathes whether or not anyone is
-watching.*
+watching. On the right: the second human joining — the other lamp takes
+her name, and the cat picks its head up for it.*
 
 v1 is the pair: one pet, the same soul on every screen, two humans sharing a
 room. No email, no passwords — your person joins by invite link and picks a
