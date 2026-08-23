@@ -13,6 +13,16 @@
 # won't fan out across workers.
 set -eu
 
+# Drop root: fix ownership of the writable locations (fly volumes mount
+# root-owned; the default sqlite file lands in /app), then re-exec as the
+# app user. Code files stay root-owned read-only. `chown /app` is the
+# directory only, not -R — the user may create files there, not edit code.
+if [ "$(id -u)" = "0" ]; then
+  chown app /app
+  if [ -d /data ]; then chown -R app /data; fi
+  exec runuser -u app -- "$0" "$@"
+fi
+
 if [ -n "${BUCKET_NAME:-}" ]; then
   litestream restore -if-db-not-exists -if-replica-exists /data/woolroom.db
 fi
