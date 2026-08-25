@@ -34,7 +34,7 @@ from app.runtime.actions import ActionIn, perform_action
 from app.storage import repo
 from app.storage.db import SessionLocal
 from app.storage.models import Pet, User
-from app.time import utc_now
+from app.time import iso_z, utc_now
 
 log = logging.getLogger(__name__)
 
@@ -107,7 +107,7 @@ def _pet_to_dict(pet: Pet) -> dict:
         "animation_state": pet.animation_state,
         "mood_arousal": pet.mood_arousal,
         "mood_valence": pet.mood_valence,
-        "adopted_at": pet.adopted_at.isoformat() if pet.adopted_at else None,
+        "adopted_at": iso_z(pet.adopted_at),
     }
 
 
@@ -399,7 +399,7 @@ async def _pet_summary(session: AsyncSession, pet: Pet, user: User) -> dict:
         "participant_count": await repo.participant_count(session, pet.id),
         "online_count": channel.online_count(pet.id),
         "pending": participant is None or participant.confirmed_adoption_at is None,
-        "adopted_at": pet.adopted_at.isoformat() if pet.adopted_at else None,
+        "adopted_at": iso_z(pet.adopted_at),
     }
 
 
@@ -960,7 +960,7 @@ async def pin_moment(
         "id": moment.id,
         "fragment": moment.fragment,
         "event_type": moment.event_type,
-        "created_at": moment.created_at.isoformat(),
+        "created_at": iso_z(moment.created_at),
     }
 
 
@@ -1012,7 +1012,7 @@ async def memory(
     moments_rows = (await session.execute(moments_q)).scalars().all()
     return {
         "pet_name": pet.name,
-        "adopted_at": pet.adopted_at.isoformat() if pet.adopted_at else None,
+        "adopted_at": iso_z(pet.adopted_at),
         "pet_age_years": round(pet_age_years(pet.adopted_at), 2),
         "life_stage": life_stage(pet.adopted_at),
         "household_names": (
@@ -1025,7 +1025,7 @@ async def memory(
                 "id": m.id,
                 "fragment": m.fragment,
                 "event_type": m.event_type,
-                "created_at": m.created_at.isoformat(),
+                "created_at": iso_z(m.created_at),
             }
             for m in moments_rows
         ],

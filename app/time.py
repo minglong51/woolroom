@@ -31,3 +31,16 @@ def local_now() -> datetime:
 def to_local(dt: datetime) -> datetime:
     """Convert a stored naive-UTC datetime to the home timezone."""
     return dt.replace(tzinfo=UTC).astimezone(home_tz())
+
+
+def iso_z(dt: datetime | None) -> str | None:
+    """Serialize a stored naive-UTC datetime for the browser.
+
+    A bare ``dt.isoformat()`` carries no offset, so ``new Date(...)`` in JS
+    parses it as *local* time — every viewer behind UTC sees the moment hours
+    in the future. Appending ``Z`` marks it as the UTC it already is.
+    """
+    if dt is None:
+        return None
+    s = dt.isoformat()
+    return s if dt.tzinfo is not None else s + "Z"
