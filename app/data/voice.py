@@ -73,6 +73,8 @@ def template_fragment(event: BufferEvent) -> str:
         "walk": "the outing where the air smelled like us",
         "pet": "your hand on my back, and me not moving away",
         "call": "you said my name like you meant it, and I came",
+        "play": "the first game we played — I chased, and let you watch",
+        "message": "something you said that I kept",
         "adoption": "the day you chose me, and I allowed it",
         "visit": "the first time I went through the door to sit with them",
     }
