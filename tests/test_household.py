@@ -216,6 +216,10 @@ def test_visit_playdate_round_trip(tmp_path: Path, monkeypatch) -> None:
         # The first visit became a kept moment on the visitor's timeline.
         memory = owner.get(f"/api/memory?pet={cat['id']}").json()
         assert any(m["event_type"] == "visit" for m in memory["moments"])
+        # Timestamps the frontend parses carry the Z — a bare isoformat()
+        # reads as local time in the browser and misgroups fresh moments.
+        assert memory["adopted_at"].endswith("Z")
+        assert all(m["created_at"].endswith("Z") for m in memory["moments"])
 
         ended = partner.post("/api/visit/end", json={"pet_id": second["id"]})
         assert ended.status_code == 200

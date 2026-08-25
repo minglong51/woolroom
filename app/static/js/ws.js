@@ -99,8 +99,12 @@ export const wsMethods = {
       }
     },
 
-    _applyPetState(pet) {
-      const prevVisit = this.pet?.visit || null;
+    _applyPetState(pet, prevVisitOverride) {
+      // Callers that swap this.pet before applying (the room switch) pass the
+      // visit diff-base explicitly; everyone else diffs against current state.
+      const prevVisit = prevVisitOverride !== undefined
+        ? prevVisitOverride
+        : this.pet?.visit || null;
       this.pet = { ...this.pet, ...pet };
       if (!this.guest && (this.pet?.participant_count || 0) >= 2) {
         this.inviteUrl = null;

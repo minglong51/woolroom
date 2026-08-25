@@ -95,6 +95,9 @@ body {
 
 .input {
   flex: 1;
+  /* let the flex row shrink the field below its size=20 min-content width —
+     otherwise the desk settings drawer clips the alias save button off-screen */
+  min-width: 0;
   background: var(--panel);
   border: 1px solid var(--line);
   color: var(--ink);

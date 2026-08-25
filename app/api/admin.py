@@ -18,7 +18,7 @@ from app.api.http import _absolute_url
 from app.config import settings
 from app.storage import repo
 from app.storage.models import User
-from app.time import utc_now
+from app.time import iso_z, utc_now
 
 router = APIRouter()
 
@@ -56,8 +56,8 @@ async def admin_list_users(
         results.append({
             "user_id": user.id,
             "display_name": user.display_name,
-            "created_at": user.created_at.isoformat() if user.created_at else None,
-            "last_seen_at": user.last_seen_at.isoformat() if user.last_seen_at else None,
+            "created_at": iso_z(user.created_at),
+            "last_seen_at": iso_z(user.last_seen_at),
             "is_participant": pet is not None,
             "pet_id": pet.id if pet else None,
             "pet_name": pet.name if pet else None,
