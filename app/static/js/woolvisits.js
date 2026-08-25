@@ -48,6 +48,14 @@ export const woolVisitMethods = {
     this.visitorLinger = false;
     this._visitorArt = null;
     this._visitor = null;
+    // Crossed into a room mid-playdate: settle the guest the same way a
+    // mid-visit boot does — simply already here at the rug's edge. Without
+    // this he paints at the SVG origin, right on top of the resident.
+    if (this.pet?.visit?.role === "host" && this.pet.visit.visitor) {
+      this._visitorArt = this.visitorArtFor(this.pet.visit.visitor.species, this.pet.visit.visitor.coat);
+      this._visitor = { x: -74, y: 8 };
+      this.$nextTick(() => this._visitorSetPos(-74, 8));
+    }
     if (this.pet?.name) this._woolSay(`${this.pet.name}'s room.`, 2400);
   },
 
@@ -91,8 +99,12 @@ export const woolVisitMethods = {
     this._woolFlash("return-wake", 1100);
     await this._woolWait(350);
     // A resident mid-performance doesn't get interrupted; the guest just
-    // settles in and the room notices on the next beat.
-    if (this._wool?.busy) return;
+    // settles at the rug's edge and the room notices on the next beat.
+    if (this._wool?.busy) {
+      this._visitor = { x: -74, y: 8 };
+      this._visitorSetPos(-74, 8);
+      return;
+    }
     await this._woolPerform(async () => {
       await this._visitorTravel(-88, 2, 700);
       this._woolFlash("alert", 700);

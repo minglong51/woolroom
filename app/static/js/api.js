@@ -322,6 +322,10 @@ export const apiMethods = {
       if (!newPet?.id) return;
       try { localStorage.setItem("woolroom_door_known", "1"); } catch (_) {}
       const prevId = this.pet?.id;
+      // Snapshot the visit diff-base BEFORE this.pet moves to the new room —
+      // _applyPetState otherwise diffs the new visit against itself and the
+      // playdate beats never fire for the one who followed through the door.
+      const prevVisit = this.pet?.visit || null;
       this.pet = newPet;
       this.activePetId = newPet.id;
       this.woolLine = "";
@@ -331,8 +335,10 @@ export const apiMethods = {
       this.woolShelf = [];
       this.woolPatches = [];
       this.localRoomNotes = [];
-      this._applyPetState(newPet);
+      // Reset first: the old room's guest art is cleared before the new
+      // payload's beats fire, so a stale _visitorArt can't trigger them.
       if (this._woolRoomSwitched) this._woolRoomSwitched(prevId);
+      this._applyPetState(newPet, prevVisit);
       // Re-aim the realtime lane at the new room.
       if (this.ws) {
         try { this.ws.onclose = null; this.ws.close(); } catch (_) {}
