@@ -24,7 +24,7 @@ does not belong in the suite.
 ## Layout
 
 - `app/` — the application: `engine/` (mood, aging, outings, quirk
-  interpreter — pure deterministic logic), `runtime/` (action
+  interpreter — rule-driven state logic), `runtime/` (action
   orchestration, respond pipeline, prompt, validator, scene fx),
   `data/` (phrase/voice/species/quirk base
   tables — content modules), `packs/` (loader, sanitizer, lint), `api/`

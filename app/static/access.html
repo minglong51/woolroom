@@ -11,7 +11,7 @@
   <meta name="twitter:card" content="summary">
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="access-body">
+<body class="access-body" data-guest-open="__GUEST_OPEN__">
 <main class="root access-root">
   <section class="access-card">
     <div class="access-scene" aria-hidden="true">
@@ -43,13 +43,13 @@
           maxlength="256">
         <button class="primary" type="submit">enter</button>
       </div>
-      <p id="status" class="tiny muted access-status"></p>
+      <p id="status" class="tiny muted access-status" role="status" aria-live="polite"></p>
       <p class="tiny muted access-footnote">if someone invited you here, your browser will continue into the room after this.</p>
     </form>
 
     <div class="access-guest">
       <button id="guest-button" class="ghost access-guest-button" type="button">peek inside as a guest</button>
-      <p id="guest-status" class="tiny muted access-guest-status"></p>
+      <p id="guest-status" class="tiny muted access-guest-status" role="status" aria-live="polite"></p>
     </div>
   </section>
 </main>
@@ -57,6 +57,9 @@
   const form = document.getElementById("access-form");
   const password = document.getElementById("password");
   const status = document.getElementById("status");
+  const guest = document.querySelector(".access-guest");
+  const guestButton = document.getElementById("guest-button");
+  const guestStatus = document.getElementById("guest-status");
   const params = new URLSearchParams(location.search);
   const next = params.get("next") || "/";
 
@@ -81,11 +84,15 @@
     }
   });
 
-  password.focus();
+  if (document.body.dataset.guestOpen === "true") {
+    form.before(guest);
+    guestButton.classList.replace("ghost", "primary");
+    guestButton.textContent = "watch the room";
+  } else {
+    password.focus();
+  }
 
   // Read-only peek: no password, no session — just the quiet room, watching.
-  const guestButton = document.getElementById("guest-button");
-  const guestStatus = document.getElementById("guest-status");
   guestButton.addEventListener("click", async () => {
     guestStatus.textContent = "";
     guestButton.disabled = true;

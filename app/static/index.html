@@ -356,7 +356,7 @@
           </g>
 
           <!-- andon lamps: one per human, identical; light is the state -->
-          <g class="lamp lamp-self" @click="woolLampTap('self')" @keydown.enter.prevent="woolLampTap('self')" @keydown.space.prevent="woolLampTap('self')" role="button" tabindex="0" aria-label="your lamp — lit while you're here">
+          <g class="lamp lamp-self" x-show="!guest" x-cloak @click="woolLampTap('self')" @keydown.enter.prevent="woolLampTap('self')" @keydown.space.prevent="woolLampTap('self')" role="button" tabindex="0" aria-label="your lamp — lit while you're here">
             <ellipse class="glowpool" cx="52" cy="400" rx="76" ry="52" fill="url(#lamppool)"/>
             <g class="flareg"><rect x="30" y="288" width="46" height="60" rx="5" fill="none" stroke="#ffd9a0" stroke-width="3"/></g>
             <rect x="32" y="290" width="42" height="56" rx="4" fill="#efe4cb"/>

@@ -1,9 +1,9 @@
 # woolroom — High-Level Design
 
-**Refreshed:** 2026-08-20 (first public baseline)
+**Refreshed:** 2026-08-25 (rule-driven engine boundary; first public baseline 2026-08-20)
 
 woolroom is a self-hostable shared ambient pet: one quiet animal in a small
-room, kept by two people. A deterministic brain (mood drift, memory, seeded
+room, kept by two people. A rule-driven brain (mood drift, memory, seeded
 outings, a phrasebook) keeps the pet alive when nobody is looking and costs
 zero inference spend by default; an opt-in LLM lane narrates richer
 utterances behind a validator and a per-pet daily budget. There are no
@@ -31,7 +31,7 @@ in-process.
                          │  channels/webapp             │ fallback  │
                          │  (in-process fanout)         ▼           │
                          │                        data/body_language│
-                         │  engine/ (pure logic):                   │
+                         │  engine/ (rule-driven state logic):      │
                          │   mood · aging · outings · quirks        │
                          │  memory/: buffer → moments → core facts  │
                          │  scheduler/: mood drift, daily outing, … │
@@ -56,7 +56,7 @@ in-process.
   (optional) → output validator → deterministic phrasebook fallback.
   Utterances are rate-limited; body language is not. Also scene fx, shared
   trace cues, playdate visits — all in-process and short-lived.
-- **Engine** (`app/engine/`) — pure deterministic functions: two-axis mood
+- **Engine** (`app/engine/`) — rule-driven state logic: two-axis mood
   (arousal × valence, never shown as numbers), compressed-time aging,
   seeded daily outings, and the quirk condition-grammar interpreter.
 - **Memory** (`app/memory/`) — three tiers: a rolling buffer of recent
