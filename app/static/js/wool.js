@@ -339,6 +339,7 @@ export const sceneMethods = {
       return [(cx - r.left) * 400 / r.width, (cy - r.top) * 520 / r.height];
     };
     zone.addEventListener("pointerdown", (e) => {
+      if (this.guest) { this._guestToast(); return; }
       down = true; dist = 0;
       [lx, ly] = pt(e); startX = lx; startY = ly;
       try { zone.setPointerCapture(e.pointerId); } catch (_) { /* */ }
@@ -363,6 +364,7 @@ export const sceneMethods = {
     });
   },
   _woolResolveTouch(dist, y, x = 200) {
+    if (this.guest) { this._guestToast(); return; }
     const w = this._wool;
     if (w.busy) { this._woolBusyAck(); return; }
     if (this._woolAwayGate()) return;

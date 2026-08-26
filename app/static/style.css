@@ -383,6 +383,7 @@ button:disabled { opacity: 0.4; cursor: default; transform: none; }
 #wool-scene > svg { display: block; width: 100%; height: auto; }
 #wool-scene .hotspot { cursor: pointer; }
 #dogzone { cursor: pointer; touch-action: none; outline: none; }
+#wool-scene [aria-disabled="true"] { cursor: default; }
 #dogzone:focus-visible { outline: 2px dashed rgba(244, 236, 220, 0.7); outline-offset: 6px; }
 .hotspot:focus-visible,
 .lamp:focus-visible,
@@ -396,10 +397,10 @@ button:disabled { opacity: 0.4; cursor: default; transform: none; }
 #wool-scene[data-time="night"] .window-wash { opacity: 0; }
 #wool-scene[data-time="dusk"] .light-dusk { opacity: 1; }
 #wool-scene[data-time="night"] .light-night { opacity: 1; }
-.sunbtn, .moonbtn { transition: opacity 2.4s ease; }
-.moonbtn { opacity: 0; }
-#wool-scene[data-time="night"] .sunbtn { opacity: 0; }
-#wool-scene[data-time="night"] .moonbtn { opacity: 1; }
+.sunbtn, .moonbtn { transition: opacity 2.4s ease, visibility 0s linear; }
+.moonbtn { opacity: 0; visibility: hidden; pointer-events: none; transition-delay: 0s, 2.4s; }
+#wool-scene[data-time="night"] .sunbtn { opacity: 0; visibility: hidden; pointer-events: none; transition-delay: 0s, 2.4s; }
+#wool-scene[data-time="night"] .moonbtn { opacity: 1; visibility: visible; pointer-events: auto; transition-delay: 0s; }
 .night-partner-pool { opacity: .05; transition: opacity 1.2s ease; }
 .night-partner-pool[data-state="afterglow"] { opacity: .18; }
 .night-partner-pool[data-state="lit"] { opacity: .42; }
@@ -641,9 +642,9 @@ button:disabled { opacity: 0.4; cursor: default; transform: none; }
 
 /* the stash lump: invisible AND untouchable until zoomies leave it
    (opacity:0 alone keeps hit-testing) */
-.ruglump { opacity: 0; pointer-events: none; transition: opacity 1.2s ease; }
+.ruglump { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 1.2s ease, visibility 0s linear 1.2s; }
 .ruglump.show,
-#wool-scene.trace-stash .ruglump { opacity: 1; pointer-events: auto; }
+#wool-scene.trace-stash .ruglump { opacity: 1; visibility: visible; pointer-events: auto; transition-delay: 0s; }
 
 .dustp { opacity: 0; }
 .dustp.puff { animation: dustpuff 0.45s ease-out 1; }

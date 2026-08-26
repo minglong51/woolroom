@@ -395,7 +395,7 @@
           </g>
 
           <!-- leash by the door edge: tap = walk -->
-          <g class="leashg hotspot" @click="woolWalk()" @keydown.enter.prevent="woolWalk()" @keydown.space.prevent="woolWalk()" role="button" tabindex="0" aria-label="the leash — tap to walk">
+          <g class="leashg hotspot" @click="woolWalk()" @keydown.enter.prevent="woolWalk()" @keydown.space.prevent="woolWalk()" role="button" tabindex="0" :aria-disabled="guest" aria-label="the leash — tap to walk">
             <circle cx="386" cy="252" r="12" fill="transparent"/>
             <circle cx="386" cy="246" r="5" fill="none" stroke="#8a7f6b" stroke-width="2.4"/>
             <path d="M386 251 q-2 20 0 38" stroke="#8a7f6b" stroke-width="3" fill="none" stroke-linecap="round"/>
@@ -455,7 +455,7 @@
           <!-- bowl: tap = feed; kibble doubles as the partner's trace.
                When the cat is hungry the bowl glows softly and dashed
                kibble outlines ask to be filled. -->
-          <g class="bowlg hotspot" @click="woolFeed()" @keydown.enter.prevent="woolFeed()" @keydown.space.prevent="woolFeed()" role="button" tabindex="0" aria-label="the bowl — tap to feed">
+          <g class="bowlg hotspot" @click="woolFeed()" @keydown.enter.prevent="woolFeed()" @keydown.space.prevent="woolFeed()" role="button" tabindex="0" :aria-disabled="guest" aria-label="the bowl — tap to feed">
             <circle cx="76" cy="464" r="28" fill="transparent"/>
             <ellipse class="bowlglow" cx="76" cy="462" rx="34" ry="18" fill="url(#lamppool)"/>
             <ellipse cx="76" cy="464" rx="24" ry="9" fill="#8a715c"/>
@@ -472,7 +472,7 @@
           </g>
 
           <!-- ball: tap = play -->
-          <g id="roomball" class="ballg hotspot" @click="woolPlay()" @keydown.enter.prevent="woolPlay()" @keydown.space.prevent="woolPlay()" role="button" tabindex="0" aria-label="the ball — tap to play">
+          <g id="roomball" class="ballg hotspot" @click="woolPlay()" @keydown.enter.prevent="woolPlay()" @keydown.space.prevent="woolPlay()" role="button" tabindex="0" :aria-disabled="guest" aria-label="the ball — tap to play">
             <circle cx="310" cy="460" r="18" fill="transparent"/>
             <circle cx="310" cy="460" r="12" fill="#e8dcc4" stroke="#c4b493" stroke-width="1.6"/>
             <path d="M301 454 q9 6 18 0 M301 466 q9 -6 18 0" stroke="#b3a58e" stroke-width="1.4" fill="none"/>
@@ -534,7 +534,7 @@
               </g>
             </g>
             <rect id="dogzone" x="128" y="270" width="144" height="188" fill="transparent"
-                  tabindex="0" role="button"
+                  tabindex="0" role="button" :aria-disabled="guest"
                   :aria-label="(pet?.name || 'the cat') + ' — stroke or tap to pet, double-tap for the zoomies'"/>
           </g>
 
