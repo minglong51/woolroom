@@ -207,7 +207,7 @@ screens show the generic fallback lines. Both are WARNs, not errors.
 `scripts/pack_lint.py <pack-dir> [--strict]` prints one line per check —
 `PASS|WARN|ERROR <check> — <reason>` — and a summary. Exit 1 on any ERROR (and
 on WARN under `--strict`), 0 otherwise. Lint never mutates: the pack is only
-read, and the loader's registry mutations are restored before it exits.
+read, and standalone validation does not import or touch runtime registries.
 
 | check | severity | what it catches |
 |---|---|---|

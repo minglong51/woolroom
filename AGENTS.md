@@ -94,6 +94,7 @@ coverage.
 app/         -> docs/design/HLD.md docs/design/LLD.md
 migrations/  -> docs/design/LLD.md
 packs/       -> docs/design/HLD.md docs/design/LLD.md
+packages/woolpack/ -> docs/design/HLD.md docs/design/LLD.md
 scripts/     -> docs/design/HLD.md docs/design/LLD.md
 docs/        -> none
 tests/       -> none

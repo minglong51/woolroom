@@ -2,6 +2,12 @@ version = 1
 revision = 3
 requires-python = ">=3.11"
 
+[manifest]
+members = [
+    "woolpack",
+    "woolroom",
+]
+
 [[package]]
 name = "aiosqlite"
 version = "0.22.1"
@@ -1137,6 +1143,17 @@ wheels = [
 ]
 
 [[package]]
+name = "woolpack"
+version = "0.1.0"
+source = { editable = "packages/woolpack" }
+dependencies = [
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pyyaml", specifier = ">=6.0" }]
+
+[[package]]
 name = "woolroom"
 version = "0.1.0"
 source = { editable = "." }
@@ -1155,6 +1172,7 @@ dependencies = [
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "tzdata" },
     { name = "uvicorn", extra = ["standard"] },
+    { name = "woolpack" },
 ]
 
 [package.optional-dependencies]
@@ -1183,5 +1201,6 @@ requires-dist = [
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
     { name = "tzdata", specifier = ">=2024.1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+    { name = "woolpack", editable = "packages/woolpack" },
 ]
 provides-extras = ["dev"]

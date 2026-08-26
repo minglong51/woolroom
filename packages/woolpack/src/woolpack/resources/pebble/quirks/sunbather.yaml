@@ -1,0 +1,14 @@
+# One simple quirk in the exact catalog condition grammar (fx mode is from
+# FX_MODES — pack quirks can only speak the existing vocabulary).
+label: Sunbather
+description: Finds the one warm patch of floor and becomes part of it.
+complexity: low
+behavior:
+  action:
+    - when:
+        action_in: [pet]
+        state_in: [sitting]
+        valence_gte: 55
+      text: "*accepts your warmth and, being a rock, returns none of it*"
+      valence_delta: 1
+      scene_fx: {mode: petting, duration_ms: 1500}

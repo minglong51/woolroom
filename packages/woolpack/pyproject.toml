@@ -1,0 +1,32 @@
+[project]
+name = "woolpack"
+version = "0.1.0"
+description = "Standalone validation and authoring tools for Woolroom content packs."
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = ["PyYAML>=6.0"]
+
+[project.scripts]
+woolpack = "woolpack.cli:main"
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"woolpack.resources" = [
+    "style.css",
+    "pebble/*.yaml",
+    "pebble/phrases/*.yaml",
+    "pebble/quirks/*.yaml",
+    "pebble/species/*.svg",
+    "pebble/species/*.yaml",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

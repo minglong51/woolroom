@@ -10,7 +10,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY pyproject.toml ./
-RUN pip install --upgrade pip && pip install -e .
+COPY packages/woolpack/pyproject.toml ./packages/woolpack/
+COPY packages/woolpack/src ./packages/woolpack/src
+RUN pip install --upgrade pip && pip install -e ./packages/woolpack -e .
 
 ADD https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-linux-amd64.deb /tmp/litestream.deb
 RUN dpkg -i /tmp/litestream.deb && rm /tmp/litestream.deb
