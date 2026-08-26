@@ -12,7 +12,7 @@ from time import monotonic
 from urllib.parse import parse_qs, quote
 
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import text as _text
@@ -348,6 +348,7 @@ def create_app() -> FastAPI:
         return html.replace("__APP_VERSION__", APP_VERSION)
 
     _INDEX_HTML = _versioned_index_html()
+    _ACCESS_HTML = (STATIC_DIR / "access.html").read_text(encoding="utf-8")
 
     @app.get("/access", name="site_access_page", response_model=None)
     async def access(request: Request) -> Response:
@@ -355,7 +356,13 @@ def create_app() -> FastAPI:
             return RedirectResponse(url="/", status_code=303)
         if has_site_access(request.cookies.get(SITE_ACCESS_COOKIE)):
             return RedirectResponse(url=request.query_params.get("next", "/"), status_code=303)
-        resp = FileResponse(STATIC_DIR / "access.html")
+        resp = Response(
+            content=_ACCESS_HTML.replace(
+                "__GUEST_OPEN__",
+                "true" if guest_access_enabled() else "false",
+            ),
+            media_type="text/html",
+        )
         resp.headers["Cache-Control"] = "no-store"
         return resp
 

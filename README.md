@@ -6,7 +6,7 @@ nobody is looking, shared with their people, running in a home they own.**
 <img src=".github/assets/room-day.png" alt="the room on a weekday morning — biscuit, a marmalade cat, sitting on the rug between two lamps named for the two people who keep the room" />
 
 woolroom is a self-hostable shared ambient pet: one quiet animal in a small
-room, kept by two people. It runs on a deterministic brain — mood drift,
+room, kept by two people. It runs on a rule-driven brain — mood drift,
 memory, seeded daily outings, a phrasebook keyed to how it actually feels —
 so it stays alive when the tab is closed and costs zero inference spend by
 default. An optional LLM lane (Anthropic, or a local model via Ollama)
