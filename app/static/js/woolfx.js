@@ -166,6 +166,7 @@ export const woolFxMethods = {
 
   // ---- performances (local ones also fire the real action) ----
   woolGreet() {
+    if (this.guest) { this._guestToast(); return; }
     if (this._wool.busy) { this._woolBusyAck(); return; }
     if (this._woolAwayGate()) return;
     if (this.woolIsNight()) { this._woolNightRefusal(); return; }
@@ -182,6 +183,7 @@ export const woolFxMethods = {
     });
   },
   woolFeed() {
+    if (this.guest) { this._guestToast(); return; }
     if (this._wool.busy) { this._woolBusyAck(); return; }
     if (this._woolAwayGate()) return;
     if (this.woolIsNight()) { this._woolSay("the bowl can wait for morning.", 3000); return; }
@@ -207,6 +209,7 @@ export const woolFxMethods = {
     });
   },
   woolPlay() {
+    if (this.guest) { this._guestToast(); return; }
     if (this._wool.busy) { this._woolBusyAck(); return; }
     if (this._woolAwayGate()) return;
     if (this.woolIsNight()) { this._woolSay(`${this._petPronoun()} sleeps. the ball keeps.`, 3000); return; }
@@ -239,6 +242,7 @@ export const woolFxMethods = {
     });
   },
   woolWalk() {
+    if (this.guest) { this._guestToast(); return; }
     if (this._wool.busy) { this._woolBusyAck(); return; }
     if (this._woolAwayGate()) return;
     if (this.woolIsNight()) { this._woolSay("walks are a daylight religion.", 3000); return; }

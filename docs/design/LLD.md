@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-08-25 (rule-driven engine boundary; 2026-08-22: wool.js split, non-root container, recovery on demand, trust seams)
+**Refreshed:** 2026-08-26 (standalone woolpack workspace; 2026-08-25: rule-driven engine boundary)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -106,25 +106,60 @@ code is right and this doc is stale.
 - `quirks_catalog.py` — the eight builtin quirks as plain data (label,
   description, `behavior` rules per channel).
 
-## `app/packs/` — pack format v1 loader
+## `app/packs/` — application adapter for pack format v1
 
-- `loader.py` — `load_packs(paths)` at boot. Gates, all fail-closed with
-  named `PackError` subclasses: manifest (exactly `name`, `version`,
-  `author`, `license`, `fx_vocab_version ≤ FX_VOCAB_VERSION`), confinement
-  (pack root only, symlinks refused), size (256KB/file, 1MB/pack, prose
-  caps), SVG sanitize, species/phrase/quirk/voice shape, registry
-  collision. Validates fully BEFORE registering; a refused pack registers
-  nothing. Exposes `LOADED_PACKS`, `PACK_ASSETS`, `client_pack_assets()`.
-- `sanitize.py` — allowlist-only SVG sanitizer, stdlib only: elements
-  outside the allowed set dropped with subtree; `on*`, `href`, and
-  `style` with `url(` stripped; root must be one `<g>`/`<svg>`;
-  DTD/entity declarations refused before parse (entity-expansion memory
-  bomb) and over-deep nesting refused — both as named `SvgSanitizeError`s.
-- `lint.py` — authoring-side checker (`PASS|WARN|ERROR` findings +
-  `exit_code(strict)`): runs the real loader first, then rig class/eye
-  state/palette contracts, stray ids, sanitizer-drop mirror, geometry
-  sanity, overlay tiny-table completeness and sparsity, voice coverage.
-  Never mutates pack or registries.
+- `loader.py` — owns runtime registration, not data validation.
+  `pack_environment()` snapshots the live engine contract (fx modes, action/
+  spot/condition/pose vocabularies and occupied species/overlay/quirk/coat
+  ids) into an immutable `woolpack.PackEnvironment`. `load_pack(path)` calls
+  `woolpack.validate_pack(path, environment=pack_environment())`; only after
+  that pure, fail-closed call succeeds does it register species, phrase
+  overlays, quirks, voice, and client assets. Exposes `LOADED_PACKS`,
+  `PACK_ASSETS`, `load_packs(paths)`, and `client_pack_assets()` for the API.
+- `sanitize.py` — compatibility re-export of the standalone sanitizer so
+  existing application and test imports keep one implementation.
+- `lint.py` — compatibility re-export of the standalone authoring checker;
+  the package owns `LintFinding`, `LintReport`, and `lint_pack()`.
+
+## `packages/woolpack/` — standalone pack contract and authoring wheel
+
+- `pyproject.toml` — independently buildable `woolpack` 0.1 distribution,
+  Python ≥3.11, with only PyYAML as a runtime dependency and console entry
+  point `woolpack = woolpack.cli:main`. Setuptools includes the resource
+  package (room CSS plus the Pebble scaffold) in the wheel.
+- `src/woolpack/contract.py` — frozen `PackEnvironment`: the engine-owned
+  vocabularies and occupied ids against which otherwise standalone pack
+  data is checked. `DEFAULT_ENVIRONMENT` mirrors the shipped woolroom
+  engine; CI asserts exact equality with `app.packs.loader.pack_environment()`.
+- `src/woolpack/validation.py` — the pure fail-closed contract.
+  `validate_pack(path, *, environment=DEFAULT_ENVIRONMENT) -> ValidatedPack`
+  enforces manifest, confinement/symlink, byte/prose, safe-YAML, SVG,
+  species/phrase/quirk/voice, vocabulary, and collision gates without
+  importing or mutating the application. `ValidatedPack` carries its
+  `PackRecord`, species, overlays, quirks, voice, raw SVGs, and environment
+  for the application adapter or authoring tools to consume.
+- `src/woolpack/sanitize.py` — stdlib allowlist SVG sanitizer: elements
+  outside the allowed set drop with their subtree; `on*`, `href`, and
+  `style` containing `url(` are stripped; the root must be one `<g>`/`<svg>`;
+  DTD/entity declarations and over-deep nesting fail as `SvgSanitizeError`.
+- `src/woolpack/lint.py` — `lint_pack(path) -> LintReport` runs standalone
+  validation, then checks rig/eye/palette handles, stray ids, sanitizer
+  drops, touch geometry, overlay completeness/sparsity, and voice coverage.
+  `LintReport.exit_code(strict=True)` turns WARN into a registry-CI failure;
+  lint reads only and has no runtime registry to restore.
+- `src/woolpack/render.py` — `render_board(pack_dir: Path) -> str` validates
+  first, then renders coats × poses and a hitbox overlay into one static HTML
+  board using the packaged room CSS. `main(argv)` writes the requested file.
+- `src/woolpack/scaffold.py` — `main(argv)` copies either a caller-supplied
+  source or the packaged Pebble resource, renames every identity-bearing
+  species/phrase/quirk stem, rewrites voice references, and refuses to
+  overwrite an existing destination.
+- `src/woolpack/cli.py` — `main(argv)` handles `--version` and dispatches
+  `new`, `render`, and `lint` to the three authoring modules.
+- `src/woolpack/resources/` — `style.css` and the complete Pebble template.
+  These are deliberate copies of `app/static/style.css` and `packs/pebble`;
+  CI byte-compares/diffs them so a source change cannot silently stale a
+  standalone wheel.
 
 ## `app/api/`, `app/auth/`, `app/channels/`
 
@@ -204,18 +239,12 @@ deployed environment; `scripts/migrate.py` runs `alembic upgrade head` at
 container start (idempotent). Individual revision files are generated and
 carry no independent contract.
 
-## `scripts/` — operator and authoring CLIs
+## `scripts/` — operator CLIs and checkout-compatible authoring shims
 
-- `pack_new.py` — scaffolds a pack: copies the example (default
-  `packs/pebble`) with the species stems renamed to the new id and the
-  manifest's `name`/`author`/`license` rewritten in place. Exists because
-  ids come from file stems, so a bare `cp -r` produces a
-  `PackCollisionError` at boot.
-- `pack_lint.py` — CLI over `app/packs/lint.py`; exit 1 on ERROR (and on
-  WARN with `--strict` — registry-CI mode).
-- `pack_render.py` — emits one self-contained HTML review board: coats ×
-  poses, hitbox overlay against the pettable rect. Loads via the real
-  loader.
+- `pack_new.py`, `pack_lint.py`, `pack_render.py` — thin re-export/
+  executable shims over `woolpack.scaffold`, `woolpack.lint`, and
+  `woolpack.render`. Existing checkout commands and imports retain their
+  interface while the installed `woolpack` console script owns behavior.
 - `migrate.py` — `alembic upgrade head` (container startup).
 - `docker-entrypoint.sh` — container boot: starts as root only to chown
   the writable locations (`/app` dir non-recursively, `/data` when
@@ -235,10 +264,29 @@ carry no independent contract.
 - `smoke-browse.sh` — optional headless visual smoke (requires a locally
   installed browse daemon; not part of CI).
 
+## Workspace, container, and CI integration
+
+- Root `pyproject.toml` — the application keeps its direct `PyYAML`
+  declaration, pins the compatible `woolpack==0.1.0`, and declares
+  `packages/woolpack` as a uv workspace member/source. `uv.lock` therefore
+  resolves the app and tool distribution as one locked local graph while the
+  child project remains independently buildable; a child contract-version
+  bump must move the application pin deliberately.
+- `Dockerfile` — copies the child project metadata and `src/` tree before
+  dependency installation, then installs both local editable projects in one
+  pip transaction. The runtime image therefore never resolves an unrelated
+  registry package named `woolpack`.
+- `.github/workflows/ci.yml` — after locked workspace sync, the standalone
+  boundary smoke compares the packaged style/template with their canonical
+  app/repository copies, AST-checks every package module for forbidden
+  `app.*` imports, and asserts default/application `PackEnvironment` parity.
+  It then builds a wheel, installs it into an isolated venv, and exercises
+  `--version`, scaffold, render, and strict lint without the woolroom app.
+
 ## `packs/pebble/` — the shipped example pack
 
 A pet rock, deliberately minimal: manifest, one species (temperament,
 one coat, hitbox geometry, SVG figure), a phrase overlay (six pinned
 cells + a complete tiny table — the rest falls through by design), one
-quirk (`sunbather`), and `voice.yaml` coat/quirk copy. Lints 12 PASS ·
-1 WARN (optional rig layers) · 0 ERROR; the WARN is pinned by tests.
+quirk (`sunbather`), and `voice.yaml` coat/quirk copy. Lints 13 PASS ·
+0 WARN · 0 ERROR and is the byte-for-byte packaged scaffold checked by CI.

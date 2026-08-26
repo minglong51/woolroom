@@ -1,0 +1,8 @@
+# CLIENT_VOICE additions, recursively merged — builtin keys survive.
+coat_labels:
+  gray: river gray
+quirks:
+  previews:
+    sunbather: finds the one warm patch of floor and becomes part of it
+  moods:
+    sunbather: warm rock

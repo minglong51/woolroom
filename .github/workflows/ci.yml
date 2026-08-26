@@ -19,6 +19,81 @@ jobs:
         run: uv run pytest tests -q
       - name: Ruff
         run: uv run ruff check .
+      - name: Woolpack standalone boundary and wheel smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cmp LICENSE packages/woolpack/LICENSE
+          cmp app/static/style.css packages/woolpack/src/woolpack/resources/style.css
+          diff -ru packs/pebble packages/woolpack/src/woolpack/resources/pebble
+
+          uv run python - <<'PY'
+          import ast
+          from pathlib import Path
+
+          from app.packs.loader import pack_environment
+          from woolpack import DEFAULT_ENVIRONMENT
+
+          failures = []
+          for path in Path("packages/woolpack/src/woolpack").rglob("*.py"):
+              for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"), filename=str(path))):
+                  if isinstance(node, ast.Import):
+                      failures.extend(
+                          f"{path}:{node.lineno}: import {alias.name}"
+                          for alias in node.names
+                          if alias.name == "app" or alias.name.startswith("app.")
+                      )
+                  elif isinstance(node, ast.ImportFrom) and node.module:
+                      if node.module == "app" or node.module.startswith("app."):
+                          failures.append(f"{path}:{node.lineno}: from {node.module} import ...")
+
+          if failures:
+              raise SystemExit("woolpack must not import the application:\n" + "\n".join(failures))
+          if pack_environment() != DEFAULT_ENVIRONMENT:
+              raise SystemExit("woolpack DEFAULT_ENVIRONMENT has drifted from woolroom")
+          PY
+
+          smoke_root="$(mktemp -d)"
+          uv build packages/woolpack --wheel --out-dir "$smoke_root/dist"
+          wheel="$(find "$smoke_root/dist" -maxdepth 1 -name 'woolpack-*.whl' -print -quit)"
+          test -n "$wheel"
+          WOOLPACK_WHEEL="$wheel" uv run python - <<'PY'
+          import os
+          from email.parser import BytesParser
+          from zipfile import ZipFile
+
+          with ZipFile(os.environ["WOOLPACK_WHEEL"]) as archive:
+              names = archive.namelist()
+              metadata_name = next(name for name in names if name.endswith(".dist-info/METADATA"))
+              metadata = BytesParser().parsebytes(archive.read(metadata_name))
+              required = {
+                  "woolpack/resources/style.css",
+                  "woolpack/resources/pebble/pack.yaml",
+                  "woolpack/resources/pebble/voice.yaml",
+                  "woolpack/resources/pebble/phrases/pebble.yaml",
+                  "woolpack/resources/pebble/quirks/sunbather.yaml",
+                  "woolpack/resources/pebble/species/pebble.svg",
+                  "woolpack/resources/pebble/species/pebble.yaml",
+              }
+              missing = sorted(required - set(names))
+              if missing:
+                  raise SystemExit(f"wheel is missing resources: {missing}")
+              if metadata.get_all("Requires-Dist", []) != ["PyYAML>=6.0"]:
+                  raise SystemExit("wheel dependency metadata has drifted")
+              if metadata.get("License-Expression") != "MIT":
+                  raise SystemExit("wheel SPDX license metadata has drifted")
+              if not any(".dist-info/licenses/LICENSE" in name for name in names):
+                  raise SystemExit("wheel is missing its MIT license text")
+          PY
+          uv venv "$smoke_root/venv"
+          uv pip install --python "$smoke_root/venv/bin/python" "$wheel"
+          woolpack="$smoke_root/venv/bin/woolpack"
+          "$woolpack" --version
+          "$woolpack" new ci_pet --dest "$smoke_root/ci_pet" --author ci --license MIT
+          "$woolpack" render "$smoke_root/ci_pet" -o "$smoke_root/ci-pet.html"
+          test -s "$smoke_root/ci-pet.html"
+          "$woolpack" lint "$smoke_root/ci_pet" --strict
       # The shipped example is the gold standard: it clears the same
       # --strict bar the submission flow asks of external packs.
       - name: Example pack lints (strict)
