@@ -58,6 +58,34 @@ jobs:
           uv build packages/woolpack --wheel --out-dir "$smoke_root/dist"
           wheel="$(find "$smoke_root/dist" -maxdepth 1 -name 'woolpack-*.whl' -print -quit)"
           test -n "$wheel"
+          WOOLPACK_WHEEL="$wheel" uv run python - <<'PY'
+          import os
+          from email.parser import BytesParser
+          from zipfile import ZipFile
+
+          with ZipFile(os.environ["WOOLPACK_WHEEL"]) as archive:
+              names = archive.namelist()
+              metadata_name = next(name for name in names if name.endswith(".dist-info/METADATA"))
+              metadata = BytesParser().parsebytes(archive.read(metadata_name))
+              required = {
+                  "woolpack/resources/style.css",
+                  "woolpack/resources/pebble/pack.yaml",
+                  "woolpack/resources/pebble/voice.yaml",
+                  "woolpack/resources/pebble/phrases/pebble.yaml",
+                  "woolpack/resources/pebble/quirks/sunbather.yaml",
+                  "woolpack/resources/pebble/species/pebble.svg",
+                  "woolpack/resources/pebble/species/pebble.yaml",
+              }
+              missing = sorted(required - set(names))
+              if missing:
+                  raise SystemExit(f"wheel is missing resources: {missing}")
+              if metadata.get_all("Requires-Dist", []) != ["PyYAML>=6.0"]:
+                  raise SystemExit("wheel dependency metadata has drifted")
+              if metadata.get("License-Expression") != "MIT":
+                  raise SystemExit("wheel SPDX license metadata has drifted")
+              if not any(".dist-info/licenses/LICENSE" in name for name in names):
+                  raise SystemExit("wheel is missing its MIT license text")
+          PY
           uv venv "$smoke_root/venv"
           uv pip install --python "$smoke_root/venv/bin/python" "$wheel"
           woolpack="$smoke_root/venv/bin/woolpack"
