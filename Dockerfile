@@ -21,6 +21,12 @@ COPY migrations ./migrations
 COPY scripts ./scripts
 COPY litestream.yml /etc/litestream.yml
 
+# Host file modes leak through COPY: a umask-077 checkout ships 600 root-owned
+# code that the uid-1000 runtime then cannot read (2026-08-26 boot crash,
+# PermissionError on /app/app/__init__.py). Normalize: still root-owned
+# read-only, but always world-readable.
+RUN chmod -R a+rX /app
+
 # The runtime drops to this user (the entrypoint re-execs itself after
 # fixing volume ownership — fly volumes mount root-owned). Code stays
 # root-owned read-only; only the data locations become writable.
