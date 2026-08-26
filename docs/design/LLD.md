@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-08-22 (wool.js split along its seams; earlier today: non-root container, recovery on demand, trust seams)
+**Refreshed:** 2026-08-25 (rule-driven engine boundary; 2026-08-22: wool.js split, non-root container, recovery on demand, trust seams)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -42,9 +42,9 @@ code is right and this doc is stale.
   Bump the version on any mode add/remove/rename; unknown modes and
   unknown emit types are loader errors.
 
-## `app/engine/` — pure deterministic logic (no I/O)
+## `app/engine/` — rule-driven state logic (no storage/network I/O)
 
-- `mood.py` — `MoodState` + pure transitions over two invisible axes:
+- `mood.py` — `MoodState` + bounded transitions over two invisible axes:
   arousal (diurnal curve + interaction bumps) and valence (care consistency
   over ~7 days). Slow transitions, minutes not turns; `pick_animation`.
 - `aging.py` — compressed timeline: 30 real days = 1 pet year; life stages
