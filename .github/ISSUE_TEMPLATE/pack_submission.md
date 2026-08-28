@@ -19,10 +19,11 @@ directory via `PACK_PATHS`, never uploaded here.
 **One line on what it is**
 
 **Lint output**
-Run against a current checkout of this repo and paste the full output:
+Run the same pinned Woolpack release as the community index and paste the full
+output. This does not require a Woolroom checkout:
 
 ```sh
-.venv/bin/python scripts/pack_lint.py <pack-dir> --strict
+uvx --from 'woolpack==0.1.0' woolpack lint <pack-dir> --strict
 ```
 
 ```
@@ -30,8 +31,13 @@ Run against a current checkout of this repo and paste the full output:
 ```
 
 **Render board eyeballed?**
-`scripts/pack_render.py <pack-dir>` — confirm every coat in every pose and
-the hitbox overlay against your art.
+Run:
+
+```sh
+uvx --from 'woolpack==0.1.0' woolpack render <pack-dir> -o <pack-name>-board.html
+```
+
+Then confirm every coat in every pose and the hitbox overlay against your art.
 
 **Pack license** (the pack's own, e.g. CC0-1.0)
 

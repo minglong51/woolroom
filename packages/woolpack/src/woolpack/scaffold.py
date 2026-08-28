@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import shutil
+from importlib.metadata import version
 from importlib.resources import files
 from importlib.resources.abc import Traversable
 from pathlib import Path
@@ -131,11 +132,19 @@ def main(argv: list[str] | None = None, *, prog: str | None = None) -> int:
     print(f"created {dest} from {source_label} (species id {old_id!r} -> {new_id!r})")
     for rel in renamed:
         print(f"  renamed {rel}")
+    if prog == "woolpack new":
+        release = version("woolpack")
+        tool_command = f"uvx --from 'woolpack=={release}' woolpack"
+        render_command = f"{tool_command} render"
+        lint_command = f"{tool_command} lint"
+    else:
+        render_command = ".venv/bin/python scripts/pack_render.py"
+        lint_command = ".venv/bin/python scripts/pack_lint.py"
     print("next:")
     print(f"  $EDITOR {dest}/species/{new_id}.yaml   # temperament / coats / geometry")
     print(f"  $EDITOR {dest}/species/{new_id}.svg    # the figure")
-    print(f"  woolpack render {dest}   # SEE it")
-    print(f"  woolpack lint {dest}     # CHECK it")
+    print(f"  {render_command} {dest}   # SEE it")
+    print(f"  {lint_command} {dest} --strict   # CHECK it")
     return 0
 
 

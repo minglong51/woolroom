@@ -42,9 +42,12 @@ Docker image, and runs the publish-gate denylist check
 Packs live in **your own repository**, not this one — a pack is shared as a
 link, and the loader runs it from any local directory. The community index is
 [woolroom-packs](https://github.com/minglong51/woolroom-packs): open a PR
-there adding **one line** for your pack — your repo link, plus the output of
-`scripts/pack_lint.py <pack-dir> --strict` run against a checkout of this
-repo, plus a `pack_render` board. The authoring loop is documented in
+there adding **one line** for your pack. Run the exact pinned render and
+strict-lint commands documented by that index, then include the lint output and
+review board with your submission. Neither command requires a Woolroom checkout
+or permanent Woolpack installation. Contributors changing Woolpack itself can
+instead use the equivalent `scripts/pack_lint.py` and `scripts/pack_render.py`
+checkout shims after `uv sync --extra dev`. The authoring loop is documented in
 [docs/packs.md](docs/packs.md).
 
 ## Design docs

@@ -118,13 +118,25 @@ never code: no scripting, no CSS, no runtime download.
 - The authoring guide is [docs/packs.md](docs/packs.md).
 - [packs/pebble](packs/pebble) is the shipped example — a pet rock,
   deliberately minimal.
-- `scripts/pack_new.py <species-id>` starts yours: copies the example with
-  every file stem already renamed to your id (stems are ids — a bare copy
-  collides at boot).
-- `scripts/pack_render.py <pack-dir>` draws the review board (every coat in
-  every pose, plus the touch-hitbox overlay); `scripts/pack_lint.py
-  <pack-dir>` runs the contract suite. If lint is green and the render board
-  looks right, the pack works.
+
+Start a pack from any directory without cloning Woolroom or permanently
+installing its authoring tools:
+
+```sh
+uvx woolpack new mole --author "Your Name" --license MIT
+uvx woolpack render packs/mole -o mole-board.html
+uvx woolpack lint packs/mole --strict
+```
+
+The scaffold copies the example with every file stem already renamed to your
+id (stems are ids — a bare copy collides at boot). Render draws every coat in
+every pose plus the touch-hitbox overlay; strict lint runs the contract suite
+and treats warnings as failures. If lint is green and the board looks right,
+the pack is ready for a Woolroom boot test. Woolroom revalidates every
+configured pack together, so cross-pack identifier collisions can still refuse
+boot. Contributors working inside this checkout can use the equivalent
+`scripts/pack_new.py`, `scripts/pack_render.py`, and `scripts/pack_lint.py`
+compatibility shims after `uv sync --extra dev`.
 
 <img src=".github/assets/pebble.png" width="300" alt="pebble, the example species, on the room floor — a smooth gray rock with dot eyes and a pale belly" />
 
