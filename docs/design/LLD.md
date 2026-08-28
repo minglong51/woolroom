@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-08-26 (standalone woolpack workspace; 2026-08-25: rule-driven engine boundary)
+**Refreshed:** 2026-08-27 (woolpack Trusted Publishing; standalone woolpack workspace 2026-08-26)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -125,8 +125,12 @@ code is right and this doc is stale.
 
 - `pyproject.toml` — independently buildable `woolpack` 0.1 distribution,
   Python ≥3.11, with only PyYAML as a runtime dependency and console entry
-  point `woolpack = woolpack.cli:main`. Setuptools includes the resource
-  package (room CSS plus the Pebble scaffold) in the wheel.
+  point `woolpack = woolpack.cli:main`. Its package README supplies the PyPI
+  long description and links the owned product page, format guide, source,
+  issues, and pack index. Setuptools includes the resource package (room CSS
+  plus the Pebble scaffold) in the wheel. Distribution metadata declares
+  `MIT AND CC0-1.0` and ships both texts: MIT covers the tool code, while the
+  bundled Pebble template declares CC0.
 - `src/woolpack/contract.py` — frozen `PackEnvironment`: the engine-owned
   vocabularies and occupied ids against which otherwise standalone pack
   data is checked. `DEFAULT_ENVIRONMENT` mirrors the shipped woolroom
@@ -280,8 +284,17 @@ carry no independent contract.
   boundary smoke compares the packaged style/template with their canonical
   app/repository copies, AST-checks every package module for forbidden
   `app.*` imports, and asserts default/application `PackEnvironment` parity.
-  It then builds a wheel, installs it into an isolated venv, and exercises
-  `--version`, scaffold, render, and strict lint without the woolroom app.
+  It then builds and metadata-checks wheel and source distributions, installs
+  each into an isolated venv, and exercises `--version`, scaffold, render, and
+  strict lint without the woolroom app.
+- `.github/workflows/release-woolpack.yml` — a published GitHub release whose
+  tag starts with `woolpack-v` checks out the event SHA with full history,
+  requires the tag version to match package metadata, and requires that SHA
+  to be on `origin/main`. A read-only build job uses pinned release tooling to
+  build, metadata-check, and clean-install both distributions. The separate
+  `pypi` environment job receives only those artifacts; only this two-step job
+  gets OIDC `id-token: write`, and the pinned PyPA publisher action exchanges
+  that identity for the short-lived upload credential.
 
 ## `packs/pebble/` — the shipped example pack
 
