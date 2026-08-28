@@ -1,6 +1,6 @@
 # woolroom — High-Level Design
 
-**Refreshed:** 2026-08-26 (standalone woolpack workspace; rule-driven engine boundary 2026-08-25)
+**Refreshed:** 2026-08-27 (woolpack Trusted Publishing; standalone woolpack workspace 2026-08-26)
 
 woolroom is a self-hostable shared ambient pet: one quiet animal in a small
 room, kept by two people. A rule-driven brain (mood drift, memory, seeded
@@ -116,6 +116,12 @@ in-process.
 - **Room contract** (`app/room_contract.py`) — the fx-mode vocabulary
   shared by server, client, and packs, versioned (`FX_VOCAB_VERSION`); an
   unknown mode is a loader error, never a silent no-op.
+- **Woolpack release boundary.** A dedicated GitHub release workflow builds
+  wheel and source artifacts in a read-only job, verifies that the
+  `woolpack-v<version>` tag resolves to a commit on `main`, then passes only
+  those artifacts to a two-step publish job. PyPI authentication is a
+  short-lived OIDC identity scoped to the reviewed `pypi` environment; no
+  registry token is stored in the repository or GitHub.
 
 ## Deployment
 
@@ -126,11 +132,15 @@ object-storage secrets exist (else plain uvicorn). `fly.toml` +
 to the host's own bucket. All runtime configuration is environment variables
 (`app/config.py`, documented in `.env.example`).
 
-CI installs the locked workspace and separately builds the `woolpack` wheel.
+CI installs the locked workspace and separately builds both `woolpack`
+distribution formats.
 The standalone smoke checks that packaged resources match the canonical
 in-repo example/style, package modules contain no `app.*` imports, default and
-engine-derived `PackEnvironment` values agree, and an isolated wheel install
-can scaffold, render, and strict-lint a new pack.
+engine-derived `PackEnvironment` values agree, and isolated wheel and source
+installs can scaffold, render, and strict-lint a new pack. Publishing is separate:
+GitHub release tags under the Woolpack namespace build and inspect both wheel
+and source distributions before the environment-gated Trusted Publishing job
+uploads them to PyPI.
 
 ## What this design refuses
 

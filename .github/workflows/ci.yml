@@ -5,12 +5,17 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           enable-cache: true
       - name: Install dependencies
@@ -19,7 +24,7 @@ jobs:
         run: uv run pytest tests -q
       - name: Ruff
         run: uv run ruff check .
-      - name: Woolpack standalone boundary and wheel smoke
+      - name: Woolpack standalone boundary and distribution smoke
         shell: bash
         run: |
           set -euo pipefail
@@ -55,9 +60,12 @@ jobs:
           PY
 
           smoke_root="$(mktemp -d)"
-          uv build packages/woolpack --wheel --out-dir "$smoke_root/dist"
+          uv build --package woolpack --no-sources --clear --no-create-gitignore --out-dir "$smoke_root/dist"
+          uvx --from 'twine==7.0.0' twine check --strict "$smoke_root"/dist/*
           wheel="$(find "$smoke_root/dist" -maxdepth 1 -name 'woolpack-*.whl' -print -quit)"
+          sdist="$(find "$smoke_root/dist" -maxdepth 1 -name 'woolpack-*.tar.gz' -print -quit)"
           test -n "$wheel"
+          test -n "$sdist"
           WOOLPACK_WHEEL="$wheel" uv run python - <<'PY'
           import os
           from email.parser import BytesParser
@@ -81,19 +89,27 @@ jobs:
                   raise SystemExit(f"wheel is missing resources: {missing}")
               if metadata.get_all("Requires-Dist", []) != ["PyYAML>=6.0"]:
                   raise SystemExit("wheel dependency metadata has drifted")
-              if metadata.get("License-Expression") != "MIT":
+              if metadata.get("License-Expression") != "MIT AND CC0-1.0":
                   raise SystemExit("wheel SPDX license metadata has drifted")
-              if not any(".dist-info/licenses/LICENSE" in name for name in names):
-                  raise SystemExit("wheel is missing its MIT license text")
+              license_files = {
+                  name.rsplit("/", 1)[-1]
+                  for name in names
+                  if ".dist-info/licenses/" in name
+              }
+              if license_files != {"LICENSE", "LICENSE-CC0"}:
+                  raise SystemExit("wheel license texts have drifted")
           PY
-          uv venv "$smoke_root/venv"
-          uv pip install --python "$smoke_root/venv/bin/python" "$wheel"
-          woolpack="$smoke_root/venv/bin/woolpack"
-          "$woolpack" --version
-          "$woolpack" new ci_pet --dest "$smoke_root/ci_pet" --author ci --license MIT
-          "$woolpack" render "$smoke_root/ci_pet" -o "$smoke_root/ci-pet.html"
-          test -s "$smoke_root/ci-pet.html"
-          "$woolpack" lint "$smoke_root/ci_pet" --strict
+          for artifact in "$wheel" "$sdist"; do
+            install_root="$(mktemp -d)"
+            uv venv "$install_root/venv"
+            uv pip install --python "$install_root/venv/bin/python" "$artifact"
+            woolpack="$install_root/venv/bin/woolpack"
+            "$woolpack" --version
+            "$woolpack" new ci_pet --dest "$install_root/ci_pet" --author ci --license MIT
+            "$woolpack" render "$install_root/ci_pet" -o "$install_root/ci-pet.html"
+            test -s "$install_root/ci-pet.html"
+            "$woolpack" lint "$install_root/ci_pet" --strict
+          done
       # The shipped example is the gold standard: it clears the same
       # --strict bar the submission flow asks of external packs.
       - name: Example pack lints (strict)
@@ -104,6 +120,8 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
       - name: Docker build smoke (build only)
         run: docker build --build-arg GIT_SHA=ci -t woolroom-ci .

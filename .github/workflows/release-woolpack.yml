@@ -1,0 +1,135 @@
+name: publish-woolpack
+
+on:
+  release:
+    types: [published]
+
+concurrency:
+  group: publish-woolpack-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: startsWith(github.event.release.tag_name, 'woolpack-v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.package.outputs.version }}
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: "0.11.7"
+          enable-cache: false
+      - name: Validate the release tag
+        id: package
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          package_version="$(python3 - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          metadata = tomllib.loads(Path("packages/woolpack/pyproject.toml").read_text())
+          print(metadata["project"]["version"])
+          PY
+          )"
+          test "$RELEASE_TAG" = "woolpack-v${package_version}"
+          tag_sha="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
+          head_sha="$(git rev-parse HEAD)"
+          test "$tag_sha" = "$GITHUB_SHA"
+          test "$head_sha" = "$GITHUB_SHA"
+          git merge-base --is-ancestor "$head_sha" refs/remotes/origin/main
+          printf 'version=%s\n' "$package_version" >> "$GITHUB_OUTPUT"
+      - name: Build wheel and source distribution
+        run: uv build --package woolpack --no-sources --clear --no-create-gitignore --out-dir dist
+      - name: Verify distribution metadata
+        run: uvx --from 'twine==7.0.0' twine check --strict dist/*
+      - name: Verify release artifacts
+        shell: bash
+        env:
+          WOOLPACK_VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          set -euo pipefail
+          wheel="dist/woolpack-${WOOLPACK_VERSION}-py3-none-any.whl"
+          sdist="dist/woolpack-${WOOLPACK_VERSION}.tar.gz"
+          test -f "$wheel"
+          test -f "$sdist"
+          test "$(find dist -maxdepth 1 -type f | wc -l | tr -d ' ')" = "2"
+
+          WOOLPACK_WHEEL="$wheel" python3 - <<'PY'
+          import os
+          from email.parser import BytesParser
+          from zipfile import ZipFile
+
+          with ZipFile(os.environ["WOOLPACK_WHEEL"]) as archive:
+              metadata_name = next(
+                  name for name in archive.namelist() if name.endswith(".dist-info/METADATA")
+              )
+              metadata = BytesParser().parsebytes(archive.read(metadata_name))
+              if metadata["Name"] != "woolpack":
+                  raise SystemExit("wheel project name is not woolpack")
+              if metadata["Version"] != os.environ["WOOLPACK_VERSION"]:
+                  raise SystemExit("wheel version does not match the release tag")
+              if metadata["Description-Content-Type"] != "text/markdown":
+                  raise SystemExit("wheel README is not Markdown metadata")
+              if not metadata.get_payload().startswith("# Woolpack"):
+                  raise SystemExit("wheel README is missing from package metadata")
+              if metadata["License-Expression"] != "MIT AND CC0-1.0":
+                  raise SystemExit("wheel license expression has drifted")
+              license_files = {
+                  name.rsplit("/", 1)[-1]
+                  for name in archive.namelist()
+                  if ".dist-info/licenses/" in name
+              }
+              if license_files != {"LICENSE", "LICENSE-CC0"}:
+                  raise SystemExit("wheel license texts have drifted")
+          PY
+
+          for artifact in "$wheel" "$sdist"; do
+            smoke_root="$(mktemp -d)"
+            uv venv "$smoke_root/venv"
+            uv pip install --python "$smoke_root/venv/bin/python" "$artifact"
+            woolpack="$smoke_root/venv/bin/woolpack"
+            test "$("$woolpack" --version)" = "woolpack ${WOOLPACK_VERSION}"
+            "$woolpack" new releasepet --dest "$smoke_root/releasepet" --author release --license MIT
+            "$woolpack" render "$smoke_root/releasepet" -o "$smoke_root/releasepet.html"
+            test -s "$smoke_root/releasepet.html"
+            "$woolpack" lint "$smoke_root/releasepet" --strict
+          done
+      - name: Store release artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: woolpack-${{ steps.package.outputs.version }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/p/woolpack
+    permissions:
+      id-token: write
+    steps:
+      - name: Retrieve release artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: woolpack-${{ needs.build.outputs.version }}
+          path: dist/
+      - name: Publish release to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
