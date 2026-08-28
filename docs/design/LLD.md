@@ -271,7 +271,7 @@ carry no independent contract.
 ## Workspace, container, and CI integration
 
 - Root `pyproject.toml` — the application keeps its direct `PyYAML`
-  declaration, pins the compatible `woolpack==0.1.0`, and declares
+  declaration, pins the compatible `woolpack==0.1.1`, and declares
   `packages/woolpack` as a uv workspace member/source. `uv.lock` therefore
   resolves the app and tool distribution as one locked local graph while the
   child project remains independently buildable; a child contract-version

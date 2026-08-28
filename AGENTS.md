@@ -11,9 +11,12 @@ uv sync --extra dev                      # environment
 .venv/bin/python -m pytest tests -q      # tests — hermetic, no services/keys/network
 .venv/bin/python -m ruff check .         # lint (line length 100, py311)
 .venv/bin/uvicorn app.main:app --reload  # run locally (zero API keys needed)
-.venv/bin/python scripts/pack_new.py <species-id>           # scaffold a pack (stems renamed)
-.venv/bin/python scripts/pack_lint.py packs/pebble          # pack contract suite
-.venv/bin/python scripts/pack_render.py packs/pebble        # visual review board
+uvx woolpack new <species-id> --author <name> --license MIT # public zero-install scaffold
+uvx woolpack render packs/pebble                            # public visual review board
+uvx woolpack lint packs/pebble --strict                     # public pack contract suite
+.venv/bin/python scripts/pack_new.py <species-id>           # checkout-compatible scaffold
+.venv/bin/python scripts/pack_render.py packs/pebble        # checkout-compatible render shim
+.venv/bin/python scripts/pack_lint.py packs/pebble --strict # checkout-compatible lint shim
 .venv/bin/python scripts/denylist_check.py                  # publish gate
 ```
 
@@ -32,7 +35,8 @@ does not belong in the suite.
   `scheduler/`, `storage/`, `auth/`, `static/` (the room client),
   `config.py`, `room_contract.py`.
 - `packs/pebble/` — the shipped example content pack (pack format v1).
-- `scripts/` — operator/authoring CLIs: `pack_lint.py`, `pack_render.py`,
+- `scripts/` — operator CLIs and checkout-compatible Woolpack shims:
+  `pack_new.py`, `pack_lint.py`, `pack_render.py`,
   `migrate.py`, `eval.py`, `seed_demo_pet.py`, `denylist_check.py`,
   `docker-entrypoint.sh`.
 - `migrations/` — alembic. The only thing that touches schema in prod.
@@ -54,13 +58,18 @@ does not belong in the suite.
 
 ## Authoring a pack (the loop)
 
-Full contract: [docs/packs.md](docs/packs.md). Short version:
-`scripts/pack_new.py <id>` (copies `packs/pebble` with the stems renamed —
-file stems are ids, so a bare `cp -r` collides at boot), edit temperament /
-coats / geometry / art / phrases / quirks / voice, then iterate
-`pack_render` (eyeball) → `pack_lint` (contract) → boot with
-`PACK_PATHS=<dir>` (live). Lint green + render board correct = the pack
-works.
+Full contract: [docs/packs.md](docs/packs.md). Short version: run
+`uvx woolpack new <id> --author <name> --license MIT` from any directory (it
+copies the bundled Pebble template with stems renamed — file stems are ids, so
+a bare copy collides at boot), edit temperament / coats / geometry / art /
+phrases / quirks / voice, then iterate `uvx woolpack render <dir>` (eyeball) →
+`uvx woolpack lint <dir> --strict` (contract) → boot a Woolroom checkout with
+`PACK_PATHS=<dir>` (live). Lint green + render board correct means the pack is
+ready for that boot test; cross-pack identifier collisions are checked only
+when Woolroom validates every configured pack together. After
+`uv sync --extra dev`, `scripts/pack_new.py`, `scripts/pack_render.py`, and
+`scripts/pack_lint.py` are thin compatibility shims for exercising the workspace
+source; public pack authors do not need the checkout.
 
 ## Design docs (HLD/LLD)
 

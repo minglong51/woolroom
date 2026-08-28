@@ -5,32 +5,60 @@ code** — there is no scripting, no CSS, no runtime download. The loader reads
 local directories named by `PACK_PATHS` at boot, validates everything behind
 fail-closed gates, and refuses to boot on any violation.
 
-The contract-test suite IS the authoring tool: if `pack_lint` is green and the
-`pack_render` board looks right, the pack works.
+The contract-test suite IS the authoring tool: if `woolpack lint` is green and
+the `woolpack render` board looks right, the pack is ready for a Woolroom boot
+test. Woolroom revalidates every configured pack together, so cross-pack
+identifier collisions can still refuse boot.
 
 ## The authoring loop
 
-```sh
-.venv/bin/python scripts/pack_new.py mole  # 1. copy the example WITH the stems
-                                           #    renamed (ids come from file
-                                           #    stems — a bare cp collides
-                                           #    with pebble at boot)
-$EDITOR packs/mole/pack.yaml          # 2. author + license
-$EDITOR packs/mole/species/mole.yaml  # 3. temperament / coats / geometry
-$EDITOR packs/mole/species/mole.svg   #    the figure art
-$EDITOR packs/mole/phrases/mole.yaml  #    its voice (optional but recommended)
-$EDITOR packs/mole/quirks/*.yaml      #    its habits (optional)
-$EDITOR packs/mole/voice.yaml         #    coat labels + quirk preview copy
+Requires Python 3.11+ and
+[`uv`](https://docs.astral.sh/uv/getting-started/installation/):
 
-.venv/bin/python scripts/pack_render.py packs/mole   # 4. SEE it: coats × poses + hitboxes
-.venv/bin/python scripts/pack_lint.py packs/mole     # 5. CHECK it: the contract suite
-PACK_PATHS=packs/mole .venv/bin/uvicorn app.main:app   # 6. LIVE with it (boot loads the pack)
+```sh
+uvx woolpack new mole --author "Your Name" --license MIT  # 1. scaffold + rename stems
+$EDITOR packs/mole/pack.yaml                              # 2. author + license
+$EDITOR packs/mole/species/mole.yaml                      # 3. temperament / coats / geometry
+$EDITOR packs/mole/species/mole.svg                       #    the figure art
+$EDITOR packs/mole/phrases/mole.yaml                      #    its voice (recommended)
+$EDITOR packs/mole/quirks/*.yaml                          #    its habits (optional)
+$EDITOR packs/mole/voice.yaml                             #    coat labels + preview copy
+
+uvx woolpack render packs/mole -o mole-board.html         # 4. SEE it
+uvx woolpack lint packs/mole --strict                     # 5. CHECK it
 ```
 
-Iterate: draw → render → lint → boot. `pack_render` is the eyeball (open the
-HTML it prints; check every coat in every pose, and the hitbox overlay against
-the art). `pack_lint` is the contract (exit 1 on ERROR; `--strict` also exits 1
-on WARN — that is registry-CI mode).
+`uvx` downloads and caches the published Woolpack command, then runs it without
+a permanent install or a Woolroom checkout. The scaffold copies the bundled
+Pebble example with every file stem renamed; file stems are ids, so a bare copy
+would collide with Pebble at boot. For repeated use, install it with
+`uv tool install woolpack` and run the same commands without the `uvx` prefix.
+
+Iterate: draw → render → lint → boot. `woolpack render` is the eyeball (open
+the HTML output; check every coat in every pose, and the hitbox overlay against
+the art). `woolpack lint` is the contract (exit 1 on ERROR; `--strict` also
+exits 1 on WARN — that is registry-CI mode).
+
+To boot the pack, clone Woolroom, run `uv sync --extra dev`, and point
+`PACK_PATHS` at the pack's absolute path:
+
+```sh
+PACK_PATHS=/absolute/path/to/packs/mole .venv/bin/uvicorn app.main:app
+```
+
+### Woolroom checkout compatibility
+
+Source contributors can exercise the workspace version through thin checkout
+shims after `uv sync --extra dev`:
+
+```sh
+.venv/bin/python scripts/pack_new.py mole --author "Your Name" --license MIT
+.venv/bin/python scripts/pack_render.py packs/mole -o mole-board.html
+.venv/bin/python scripts/pack_lint.py packs/mole --strict
+```
+
+These commands delegate to the same Woolpack implementation. Pack authors do
+not need a Woolroom checkout to scaffold, render, or lint.
 
 ## Format reference
 
@@ -82,7 +110,7 @@ manifest gate) — the pack's paragraph lives in its README or YAML comments.
   thresholds the tail, inside the belly rect the belly, else the body. Measure
   against your art; the pettable area is the `#dogzone` rect
   (x 128–272, y 270–458), so a zone threshold outside it is unreachable (lint
-  warns; `pack_render`'s hitbox overlay is the eyeball check).
+  warns; `woolpack render`'s hitbox overlay is the eyeball check).
 
 ### `species/<id>.svg` — one `<g>` fragment on the wool rig class contract
 
@@ -202,9 +230,9 @@ quirks:
 Without a label the UI shows the raw id; without preview/mood copy the adopt
 screens show the generic fallback lines. Both are WARNs, not errors.
 
-## What `pack_lint` checks
+## What `woolpack lint` checks
 
-`scripts/pack_lint.py <pack-dir> [--strict]` prints one line per check —
+`uvx woolpack lint <pack-dir> [--strict]` prints one line per check —
 `PASS|WARN|ERROR <check> — <reason>` — and a summary. Exit 1 on any ERROR (and
 on WARN under `--strict`), 0 otherwise. Lint never mutates: the pack is only
 read, and standalone validation does not import or touch runtime registries.
@@ -236,7 +264,7 @@ read, and standalone validation does not import or touch runtime registries.
   builtin cat's voice — a sparse overlay means a species that occasionally
   sounds like a cat. Pin the cells that matter (at minimum some `body` cells
   and the full `tiny` table).
-- **Geometry is hand-measured** against your art. `pack_render`'s hitbox
+- **Geometry is hand-measured** against your art. `woolpack render`'s hitbox
   overlay is the source of truth for "does the ear zone sit on the ear"; lint
   only catches zones that cannot work.
 - **Boot-time, local dirs only.** Packs load from `PACK_PATHS` at process

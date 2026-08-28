@@ -10,7 +10,9 @@ pack contents.
 
 ## Quick start
 
-Run Woolpack without installing it permanently:
+With Python 3.11+ and
+[`uv`](https://docs.astral.sh/uv/getting-started/installation/), run Woolpack
+without installing it permanently:
 
 ```sh
 uvx woolpack new mole --author "Your Name" --license MIT
