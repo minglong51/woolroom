@@ -16,26 +16,14 @@ from fastapi.testclient import TestClient
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 GUEST_COOKIE = "woolroom_guest_access"
+SITE_ACCESS_COOKIE = "woolroom_site_access"
 SESSION_COOKIE = "woolroom_session"
 
-PRIVATE_KEYS = {
-    "household_names",
-    "room_notes",
-    "shared_trace",
-    "shared_trace_cue",
-    "partner_traces",
-    "partner_trace_cues",
-    "couple_rhythm",
-    "partner_absence_minutes",
-    "viewer_partner_aliases",
-    "origin_line",
-    "participant_count",
-    "online_count",
-}
-
-KEPT_KEYS = {
+GUEST_SCENE_KEYS = {
     "id",
     "name",
+    "species",
+    "pronoun",
     "quirks",
     "coat",
     "pose_detail",
@@ -47,7 +35,10 @@ KEPT_KEYS = {
     "pet_age_years",
     "render_scale",
     "stage_proportions",
+    "fed_minutes_ago",
+    "hungry",
     "scene_fx",
+    "scene_events",
     "app_version",
 }
 
@@ -148,6 +139,38 @@ def test_guest_cookie_passes_site_gate_as_guest(tmp_path: Path, monkeypatch) -> 
         assert me.json()["guest"] is True
 
 
+def test_owner_access_replaces_guest_cookie(tmp_path: Path, monkeypatch) -> None:
+    app = _load_app(tmp_path, monkeypatch, site_password="den-word")
+
+    with TestClient(app) as client:
+        _grant_guest(client)
+
+        response = client.post("/api/site-access", json={"password": "den-word"})
+        assert response.status_code == 200
+        assert client.cookies.get(SITE_ACCESS_COOKIE)
+        assert client.cookies.get(GUEST_COOKIE) is None
+
+        set_cookies = response.headers.get_list("set-cookie")
+        assert len(set_cookies) == 2
+        guest_clear = next(value for value in set_cookies if value.startswith(f"{GUEST_COOKIE}="))
+        assert "Max-Age=0" in guest_clear
+        assert "Path=/" in guest_clear
+
+
+def test_failed_owner_access_preserves_guest_cookie(tmp_path: Path, monkeypatch) -> None:
+    app = _load_app(tmp_path, monkeypatch, site_password="den-word")
+
+    with TestClient(app) as client:
+        _grant_guest(client)
+        guest_cookie = client.cookies.get(GUEST_COOKIE)
+
+        response = client.post("/api/site-access", json={"password": "wrong"})
+        assert response.status_code == 401
+        assert client.cookies.get(GUEST_COOKIE) == guest_cookie
+        assert client.cookies.get(SITE_ACCESS_COOKIE) is None
+        assert response.headers.get_list("set-cookie") == []
+
+
 def test_authed_user_reports_guest_false(tmp_path: Path, monkeypatch) -> None:
     app = _load_app(tmp_path, monkeypatch)
 
@@ -159,7 +182,7 @@ def test_authed_user_reports_guest_false(tmp_path: Path, monkeypatch) -> None:
         assert me.json()["guest"] is False
 
 
-def test_guest_scene_excludes_every_private_field(tmp_path: Path, monkeypatch) -> None:
+def test_guest_scene_matches_explicit_allowlist(tmp_path: Path, monkeypatch) -> None:
     app = _load_app(tmp_path, monkeypatch, site_password="den-word")
 
     with TestClient(app) as owner, TestClient(app) as guest:
@@ -179,12 +202,7 @@ def test_guest_scene_excludes_every_private_field(tmp_path: Path, monkeypatch) -
         assert body["guest"] is True
         payload = body["pet"]
         assert payload["id"] == pet["id"]
-        assert PRIVATE_KEYS.isdisjoint(payload.keys()), (
-            f"private keys leaked: {PRIVATE_KEYS & payload.keys()}"
-        )
-        assert KEPT_KEYS <= payload.keys(), (
-            f"kept keys missing: {KEPT_KEYS - payload.keys()}"
-        )
+        assert set(payload) == GUEST_SCENE_KEYS
         # Belt-and-braces: no household name or whisper text anywhere in the
         # serialized payload.
         blob = json.dumps(payload)
@@ -227,7 +245,7 @@ def test_guest_ws_gets_sanitized_initial_and_broadcast_state(
             initial = ws.receive_json()
             assert initial["type"] == "pet_state"
             assert initial["pet"]["id"] == pet["id"]
-            assert PRIVATE_KEYS.isdisjoint(initial["pet"].keys())
+            assert set(initial["pet"]) == GUEST_SCENE_KEYS
 
             # The owner acts; the guest socket must receive exactly the
             # sanitized pet_state frame (the response frame is asserted absent
@@ -238,7 +256,7 @@ def test_guest_ws_gets_sanitized_initial_and_broadcast_state(
 
             frame = ws.receive_json()
             assert frame["type"] == "pet_state"
-            assert PRIVATE_KEYS.isdisjoint(frame["pet"].keys())
+            assert set(frame["pet"]) == GUEST_SCENE_KEYS
             assert frame["pet"]["name"] == "Purl"
 
 
@@ -287,6 +305,7 @@ async def test_channel_guest_bucket_only_gets_sanitized_pet_state(
         "room_notes": [{"line": "miss you"}],
         "online_count": 2,
         "scene_fx": None,
+        "future_private": {"secret": "new field"},
     }
     await channel.broadcast("pet-1", {"type": "pet_state", "pet": full_payload})
     assert len(guest_ws.sent) == 1
@@ -294,7 +313,7 @@ async def test_channel_guest_bucket_only_gets_sanitized_pet_state(
     assert sent["type"] == "pet_state"
     assert sent["pet"]["name"] == "Purl"
     assert sent["pet"]["scene_fx"] is None
-    assert PRIVATE_KEYS.isdisjoint(sent["pet"].keys())
+    assert set(sent["pet"]) == {"id", "name", "scene_fx"}
 
     await channel.unregister_guest("pet-1", guest_ws)
     assert channel.guest_count("pet-1") == 0

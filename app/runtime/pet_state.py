@@ -215,28 +215,27 @@ def _app_version() -> str:
 
 # ────────── read-only guest scene ──────────
 
-# Fields a guest must never see: household identity, whispers/room notes,
-# couple traces & rhythm, aliases, the origin line, and presence counters
-# (online_count/participant_count would leak who is in the room right now).
-# sibling/visit describe the household's second room — equally private.
-GUEST_HIDDEN_KEYS = frozenset({
-    "household_names",
-    "room_notes",
-    "shared_trace",
-    "shared_trace_cue",
-    "partner_traces",
-    "partner_trace_cues",
-    "return_cue",
-    "couple_rhythm",
-    "partner_absence_minutes",
-    "viewer_partner_aliases",
-    "origin_line",
-    "hidden_thing",
-    "participant_count",
-    "online_count",
-    "scene_events",
-    "sibling",
-    "visit",
+# Fields copied verbatim into the guest DTO. Nested scene state has its own
+# allowlists below; every other full-scene field is private by default.
+GUEST_SCENE_VALUE_KEYS = frozenset({
+    "id",
+    "name",
+    "species",
+    "pronoun",
+    "quirks",
+    "coat",
+    "pose_detail",
+    "animation_state",
+    "mood_arousal",
+    "mood_valence",
+    "adopted_at",
+    "life_stage",
+    "pet_age_years",
+    "render_scale",
+    "stage_proportions",
+    "fed_minutes_ago",
+    "hungry",
+    "app_version",
 })
 
 GUEST_SCENE_EVENT_KEYS = frozenset({
@@ -274,9 +273,12 @@ def sanitize_scene_event(event: dict) -> dict:
 
 
 def sanitize_scene_payload(payload: dict) -> dict:
-    """Strip every private field from a full pet_state payload. Pure, so the
-    WS channel can run the same sanitizer on broadcast frames."""
-    sanitized = {k: v for k, v in payload.items() if k not in GUEST_HIDDEN_KEYS}
+    """Project a full pet_state payload through the explicit guest allowlist."""
+    sanitized = {
+        key: value
+        for key, value in payload.items()
+        if key in GUEST_SCENE_VALUE_KEYS
+    }
     scene_fx = payload.get("scene_fx")
     if isinstance(scene_fx, dict):
         sanitized["scene_fx"] = {
@@ -284,6 +286,8 @@ def sanitize_scene_payload(payload: dict) -> dict:
             for key, value in scene_fx.items()
             if key in GUEST_SCENE_FX_KEYS
         }
+    elif scene_fx is None and "scene_fx" in payload:
+        sanitized["scene_fx"] = None
     scene_events = payload.get("scene_events")
     if isinstance(scene_events, list):
         sanitized["scene_events"] = [
@@ -295,9 +299,7 @@ def sanitize_scene_payload(payload: dict) -> dict:
 
 
 async def build_guest_scene_payload(session: AsyncSession, pet: Pet) -> dict:
-    """Guest-safe pet_state: build the normal payload (no viewer), then strip.
-    Building-then-stripping keeps this drift-proof — a new private field added
-    to build_scene_payload only needs a GUEST_HIDDEN_KEYS entry."""
+    """Guest-safe pet_state: build the normal payload, then allowlist it."""
     return sanitize_scene_payload(await build_scene_payload(session, pet))
 
 
