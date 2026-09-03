@@ -2,8 +2,10 @@
 
 A pack is a directory of YAML + one SVG per species. **Packs are data, never
 code** — there is no scripting, no CSS, no runtime download. The loader reads
-public local directories named by `PACK_PATHS` at boot, validates everything
-behind fail-closed gates, and refuses to boot on any violation.
+Woolroom's packaged dog/pig profiles first and public local directories named
+by `PACK_PATHS` second, validates everything behind fail-closed gates, and
+refuses to boot on any violation. The `dog` and `pig` species ids are reserved;
+external packs add other identities.
 
 The contract-test suite IS the authoring tool: if `woolpack lint` is green and
 the `woolpack render` board looks right, the pack is ready for a Woolroom boot
@@ -39,8 +41,8 @@ the HTML output; check every coat in every pose, and the hitbox overlay against
 the art). `woolpack lint` is the contract (exit 1 on ERROR; `--strict` also
 exits 1 on WARN — that is registry-CI mode).
 
-To boot the pack, clone Woolroom, run `uv sync --extra dev`, and point
-`PACK_PATHS` at the public pack's absolute path:
+To boot an additional pack, clone Woolroom, run `uv sync --extra dev`, and
+point `PACK_PATHS` at the public pack's absolute path:
 
 ```sh
 PACK_PATHS=/absolute/path/to/packs/mole .venv/bin/uvicorn app.main:app
@@ -132,6 +134,10 @@ a missing one is a lint ERROR because poses visibly break:
   room sets `--dog-body/--dog-belly/--dog-point` and those classes pick them
   up. A missing slot means that coat color paints nowhere. (Fill attributes
   carry one coat's hexes as the no-CSS fallback, like the builtin art.)
+
+Forbidden: `.breath` and `.squishg` class tokens anywhere in the fragment.
+The host injects those two animation wrappers around every figure; including
+either in pack art double-applies its animation and is a lint ERROR.
 
 Nice-to-have (lint WARNs if absent): `.brushstreak` (grooming lines),
 `.touchfibers` (petting fibers), `.paw-dream` (the sleep paw-twitch),
@@ -267,8 +273,9 @@ read, and standalone validation does not import or touch runtime registries.
 - **Geometry is hand-measured** against your art. `woolpack render`'s hitbox
   overlay is the source of truth for "does the ear zone sit on the ear"; lint
   only catches zones that cannot work.
-- **Public, boot-time, local dirs only.** Packs load from `PACK_PATHS` at
-  process start. Their voice and client assets are guest-readable
+- **Public, boot-time, local dirs only.** Packaged dog/pig profiles load first;
+  additional packs load from `PACK_PATHS` at process start. Their voice and
+  client assets are guest-readable
   distribution content. Private deployment content belongs behind a trusted
   card overlay provider, never in this registry. There is no runtime install,
   remote fetch, or hot reload.

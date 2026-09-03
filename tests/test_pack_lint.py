@@ -40,7 +40,7 @@ SHIPPED_PACK = Path(__file__).parent.parent / "packs" / "pebble"
 
 SCRIPTS = Path(__file__).parent.parent / "scripts"
 sys.path.insert(0, str(SCRIPTS))
-import pack_lint  # noqa: E402  (scripts/ is not a package)
+import pack_lint  # scripts/ is not a package
 
 
 @pytest.fixture(autouse=True)
@@ -152,6 +152,21 @@ def test_figure_without_coat_hooks_is_an_error(tmp_path: Path) -> None:
     finding = _finding(report, "rig palette [pebble]")
     assert finding.severity == ERROR
     assert ".coat" in finding.message
+    assert report.exit_code() == 1
+
+
+@pytest.mark.parametrize("wrapper", ["breath", "squishg"])
+def test_figure_with_host_owned_animation_wrapper_is_an_error(
+    tmp_path: Path, wrapper: str
+) -> None:
+    pack = _copy_pack(tmp_path)
+    svg = (pack / "species" / "pebble.svg").read_text(encoding="utf-8")
+    _write(pack, "species/pebble.svg", svg.replace("<g>", f'<g class="{wrapper}">', 1))
+    report = lint_pack(pack)
+    finding = _finding(report, "rig wrapper ownership [pebble]")
+    assert finding.severity == ERROR
+    assert f".{wrapper}" in finding.message
+    assert "host injects" in finding.message
     assert report.exit_code() == 1
 
 
@@ -306,7 +321,7 @@ def test_cli_reports_and_exit_codes(tmp_path: Path, capsys) -> None:
     assert pack_lint.main([str(SHIPPED_PACK)]) == 0
     out = capsys.readouterr().out
     assert "PASS  load — pebble v0.1.0" in out
-    assert "13 PASS · 0 WARN · 0 ERROR — lints clean" in out
+    assert "14 PASS · 0 WARN · 0 ERROR — lints clean" in out
     assert pack_lint.main([str(SHIPPED_PACK), "--strict"]) == 0
 
     pack = _copy_pack(tmp_path)

@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-09-02 (installable core and private card-overlay boundary)
+**Refreshed:** 2026-09-02 (packaged species profiles and adoption composition)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -13,17 +13,21 @@ code is right and this doc is stale.
   is an env var: `SECRET_KEY`, `SITE_PASSWORD`, `DATABASE_URL`, `BASE_URL`,
   `HOME_TZ`, `ENV`, LLM lane (`LLM_PROVIDER` disabled/anthropic/ollama,
   model/token/timeout, `LLM_DAILY_CALL_CAP`), memory caps,
-  `ADOPT_ALLOWLIST`, `PACK_PATHS` (CSV of public local pack dirs),
+  `ADOPT_ALLOWLIST`, deployment-owned adoption identities
+  (`ADOPT_PRIMARY_SPECIES`/`COAT`, `ADOPT_SECONDARY_SPECIES`/`COAT`),
+  `PACK_PATHS` (CSV of additional public local pack dirs),
   household shape (`HOUSEHOLD_SIZE` pinned `!= 2` raises — pair-shaped by
   design; `MAX_ROOMS_PER_HOUSEHOLD`, `QUIRK_PICK_COUNT`), guest mode
   (`GUEST_ACCESS_ENABLED`, `GUEST_PET_ID`), `ADMIN_TOKEN`, `OPEN_SIGNUP`.
   Prod validators: strong secret required, only metered `sk-ant-api` keys,
   guest mode requires a pinned pet.
 - `main.py` — FastAPI entry. `create_app(overlay_provider=...,
-  auth_namespace=...)` installs the trusted provider or a default empty
-  provider and stores the validated auth namespace on app state. Lifespan: provider
-  startup/shutdown around the app resources; `load_packs(settings.pack_paths)`
-  first (fail-closed; boot refuses on gate violations), boot refusal when
+  auth_namespace=..., adoption_defaults=...)` installs the trusted provider
+  or a default empty provider and stores the validated auth namespace and
+  adoption identities on app state. Lifespan: provider startup/shutdown around
+  the app resources; idempotent core dog/pig profile loading followed by
+  `load_packs(settings.pack_paths)`, then adoption-default validation against
+  the live registry (fail-closed; boot refuses on gate violations), boot refusal when
   `SITE_PASSWORD`/guest access is enabled over the default `SECRET_KEY`
   (the gate cookies would be forgeable in any ENV), dev-only
   `create_all` + tolerant column ALTERs (prod schema is alembic-only),
@@ -54,8 +58,8 @@ code is right and this doc is stale.
 - `mood.py` — `MoodState` + bounded transitions over two invisible axes:
   arousal (diurnal curve + interaction bumps) and valence (care consistency
   over ~7 days). Slow transitions, minutes not turns; `pick_animation`.
-- `aging.py` — compressed timeline: 30 real days = 1 pet year; life stages
-  `kitten/young/adult/senior` drive render scale and proportions.
+- `aging.py` — compressed timeline: 30 real days = 1 pet year; species-neutral
+  life stages `juvenile/young/adult/senior` drive render scale and proportions.
 - `outings.py` — deterministic daily outing fragments (seeded by pet + day;
   same inputs, same fragment on any worker).
 - `quirks.py` — the quirk condition-grammar interpreter. Definitions are
@@ -105,8 +109,8 @@ code is right and this doc is stale.
   WHOLE), `MESSAGE_CONTEXT_LANGUAGE`, intent lexicons (en + zh),
   `SPECIES_PHRASE_OVERLAYS` (loader-registered), bucket helpers, `_pick`
   rotation with repeat guard, `classify_message`, `fallback_phrase`.
-- `voice.py` — server-side copy (milestones, templates, anniversaries,
-  room notes, `origin_line`, `SYSTEM_TEMPLATE`, `STAGE_BLURB`) plus
+- `voice.py` — species-neutral server-side copy (milestones, templates,
+  anniversaries, room notes, `origin_line`, `SYSTEM_TEMPLATE`, `STAGE_BLURB`) plus
   `CLIENT_VOICE` (served at `/api/voice`) and `INDEX_VOICE` (substituted
   into index.html at serve time). Golden-pinned by `tests/`.
 - `species.py` — the species registry: locked temperament, coats, pronoun,
@@ -125,8 +129,11 @@ code is right and this doc is stale.
   that pure, fail-closed call succeeds does it register species, phrase
   overlays, quirks, voice, and client assets. Exposes `LOADED_PACKS`,
   `PACK_ASSETS`, `load_packs(paths)`, and `client_pack_assets()` for the API.
-  Every `PACK_PATHS` entry is public; private providers never call this
-  registration path.
+  `load_core_profiles()` loads the packaged dog and pig profiles once per
+  process, verifies complete registry state on repeat lifespans, and leaves
+  ordinary `load_pack(s)` collision-strict. Core profiles load before
+  `PACK_PATHS`, reserving `dog` and `pig`. Every `PACK_PATHS` entry is public;
+  private providers never call this registration path.
 - `sanitize.py` — compatibility re-export of the standalone sanitizer so
   existing application and test imports keep one implementation.
 - `lint.py` — compatibility re-export of the standalone authoring checker;
@@ -167,8 +174,9 @@ code is right and this doc is stale.
   be one `<g>`/`<svg>`;
   DTD/entity declarations and over-deep nesting fail as `SvgSanitizeError`.
 - `src/woolpack/lint.py` — `lint_pack(path) -> LintReport` runs standalone
-  validation, then checks rig/eye/palette handles, stray ids, sanitizer
-  drops, touch geometry, overlay completeness/sparsity, and voice coverage.
+  validation, then checks rig/eye/palette handles, rejects host-owned
+  `.breath`/`.squishg` wrappers inside pack art, and checks stray ids,
+  sanitizer drops, touch geometry, overlay completeness/sparsity, and voice coverage.
   `LintReport.exit_code(strict=True)` turns WARN into a registry-CI failure;
   lint reads only and has no runtime registry to restore.
 - `src/woolpack/render.py` — `render_board(pack_dir: Path) -> str` validates
@@ -188,7 +196,8 @@ code is right and this doc is stale.
 ## `app/api/`, `app/auth/`, `app/channels/`
 
 - `api/http.py` — REST: `/healthz`, `/api/start|logout|me`, adopt flow
-  (`/api/adopt`, `/api/room`, `/api/adopt-second`, `/api/second-quirk`),
+  (`/api/adoption-defaults`, `/api/adopt`, `/api/room`,
+  `/api/adopt-second`, `/api/second-quirk`),
   pairing (`/api/invite`, `/join/{token}`, `/api/join-pending`,
   `/r/{token}` recovery, `/api/recovery-url` — the login bookmark on
   demand; `/api/me` deliberately does not carry it), `/api/action` (the interaction verb),
@@ -201,7 +210,9 @@ code is right and this doc is stale.
   cross-device active-room pointer. `/api/room` and `/api/coat` return the
   newly bound card with their mutation response. These dynamic card responses
   are `private, no-store`.
-  `/api/action` holds the mutation guard and
+  The public four-field adoption-default DTO drives previews and coat choices;
+  the server fixes each adoption to its configured species and validates the
+  chosen coat within that species. `/api/action` holds the mutation guard and
   delegates to `runtime/actions.py`. Signup is invite-only
   (`OPEN_SIGNUP` off) with one
   designed exception: an empty users table admits the first human — a fresh
@@ -253,7 +264,8 @@ code is right and this doc is stale.
   `favicon.svg` — the cat mark. `app.js` — boot glue.
 - `js/state.js` + `js/api.js` — Alpine store and REST/WS client calls; the
   active provider card is held separately from the public packs registry and
-  atomically replaced with room/coat transitions.
+  atomically replaced with room/coat transitions. Boot also fetches the public
+  adoption-default DTO and seeds primary/secondary coat selection from it.
 - `js/wool.js` — the scene core: boot, the light-not-dye clock, motion
   primitives and locomotion, touch resolution, presentation reads
   (traces, rig style, poses). A matching card supplies the active pet's
@@ -263,7 +275,8 @@ code is right and this doc is stale.
   the drain queue and plan runner), `js/woolfx.js` (fx primitives +
   the verb performances).
 - `js/figures.js` — figure art + the rig class contract (the builtin cat;
-  pack figures satisfy the same contract) and coat palette application. A
+  pack figures satisfy the same contract), adoption/ceremony profile previews,
+  and coat palette application. A
   matching active card is resolved as a one-pet ephemeral catalog and never
   merged into the public `/api/packs` map.
 - `js/sound.js` — WebAudio synth: per-species motifs (the cat voice) and
@@ -273,17 +286,21 @@ code is right and this doc is stale.
   shared-trace cue derivation (mirrors `TRACE_CUE_MAP`; pinned by
   `tests/test_room_contract.py`).
 - `js/presence.js`, `js/memory.js`, `js/quirks.js`, `js/ui.js` — presence
-  pill, memory/moments views, quirk pick + adopt flow, misc UI.
+  pill, memory/moments views, species-aware quirk/adoption flow, misc UI.
 - `vendor/` — vendored Alpine; third-party, not covered by this contract.
 
 ## `woolroom/` — public composition and migration package
 
 - `__init__.py` — stable consumer import: package version,
-  `PLUGIN_API_VERSION`, `create_app(overlay_provider=..., auth_namespace=...)`,
-  `AuthNamespace`, `BoundPetCard`, provider types, and `migration_path()` for
-  installed-wheel Alembic adoption.
+  `PLUGIN_API_VERSION`, `create_app(overlay_provider=..., auth_namespace=...,
+  adoption_defaults=...)`, `AdoptionDefaults`, `AuthNamespace`,
+  `BoundPetCard`, provider types, and `migration_path()` for installed-wheel
+  Alembic adoption.
   The package's PEP 561 marker makes this composition surface typed for
   consumers.
+- `adoption.py` — frozen `AdoptionDefaults`: primary/secondary species and
+  coat pairs, live-registry validation after pack loading, and the exact
+  four-field public client projection.
 - `auth.py` — frozen cookie/salt namespace for session, site-access, guest,
   and pending-invite flows. Values are bounded safe ASCII; cookie names and
   signing salts must each be pairwise distinct. `DEFAULT_AUTH_NAMESPACE`
@@ -328,16 +345,17 @@ code is right and this doc is stale.
 ## Workspace, container, and CI integration
 
 - Root `pyproject.toml` — the application keeps its direct `PyYAML`
-  declaration, pins the compatible `woolpack==0.2.0`, packages `app.static`
-  and the public `woolroom` namespace, and declares
+  declaration, pins the compatible `woolpack==0.2.0`, packages `app.static`,
+  the canonical dog/pig profile data under `app.packs`, and the public
+  `woolroom` namespace, and declares
   `packages/woolpack` as a uv workspace member/source. `uv.lock` therefore
   resolves the app and tool distribution as one locked local graph while the
   child project remains independently buildable; a child contract-version
   bump must move the application pin deliberately.
 - `Dockerfile` — copies root metadata/readme plus the child project metadata
   and `src/` tree before dependency installation, then installs both local
-  editable projects in one pip transaction; it also copies the public
-  composition/migration package.
+  editable projects in one pip transaction; it also copies `app` (including
+  the canonical profiles) and the public composition/migration package.
   The runtime image therefore never resolves an unrelated registry package
   named `woolpack`.
 - `.github/workflows/ci.yml` — after locked workspace sync, the standalone
@@ -348,8 +366,9 @@ code is right and this doc is stale.
   each into an isolated venv, and exercises `--version`, scaffold, render, and
   strict lint without the woolroom app. The core distribution smoke builds
   Woolroom wheel/source artifacts beside the exact Woolpack wheel, verifies
-  package/dependency version parity and required static/migration/card/auth files,
-  installs each core artifact in isolation, exercises the stable composition API, and runs
+  package/dependency version parity and required static/migration/card/auth/
+  profile files, installs each core artifact in isolation, enters a composed
+  dog/pig app lifespan twice, exercises the stable composition API, and runs
   packaged Alembic migrations against synthetic SQLite.
 - `.github/workflows/release-woolpack.yml` — a published GitHub release whose
   tag starts with `woolpack-v` checks out the event SHA with full history,
@@ -365,5 +384,14 @@ code is right and this doc is stale.
 A pet rock, deliberately minimal: manifest, one species (temperament,
 one coat, hitbox geometry, SVG figure), a phrase overlay (six pinned
 cells + a complete tiny table — the rest falls through by design), one
-quirk (`sunbather`), and `voice.yaml` coat/quirk copy. Lints 13 PASS ·
+quirk (`sunbather`), and `voice.yaml` coat/quirk copy. Lints 14 PASS ·
 0 WARN · 0 ERROR and is the byte-for-byte packaged scaffold checked by CI.
+
+## `app/packs/profiles/` — packaged public profiles
+
+`dog/` and `pig/` are canonical data-only packs shipped inside the Woolroom
+application distribution and Docker image. Both carry temperament, coats,
+neutral rig art, complete rotating phrase overlays, and coat labels; both pass
+the same strict Woolpack gates as external packs. Lifespan loads them before
+operator `PACK_PATHS`, so direct hosts and private consumers can select either
+through `AdoptionDefaults` without vendoring public behavior.
