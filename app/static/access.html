@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>woolroom access</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
+  <meta name="color-scheme" content="light dark">
   <meta property="og:title" content="woolroom">
   <meta property="og:description" content="a quiet room, shared.">
   <meta property="og:type" content="website">
@@ -15,41 +15,55 @@
 <main class="root access-root">
   <section class="access-card">
     <div class="access-scene" aria-hidden="true">
+      <div class="access-window"></div>
       <div class="access-moon"></div>
       <div class="access-floor"></div>
+      <div class="access-rug"></div>
+      <div class="access-lamp access-lamp-left"></div>
+      <div class="access-lamp access-lamp-right"></div>
+      <div class="access-note-paper"></div>
       <div class="access-pet">
         <span class="access-tail"></span>
         <span class="access-body-shape"></span>
         <span class="access-head"></span>
+        <span class="access-face"></span>
       </div>
     </div>
 
-    <div class="access-copy">
-      <p class="tiny muted access-kicker">private den</p>
-      <h1 class="logo access-logo">woolroom</h1>
-      <p class="access-note">a quiet room, shared.</p>
-      <p class="muted access-note access-note-quiet">say the private word once on this device. after that, the room should stay out of your way.</p>
-    </div>
-
-    <form id="access-form" class="access-form">
-      <label class="tiny muted access-label" for="password">site password</label>
-      <div class="row access-row">
-        <input
-          id="password"
-          class="input"
-          type="password"
-          placeholder="the private word"
-          autocomplete="current-password"
-          maxlength="256">
-        <button class="primary" type="submit">enter</button>
+    <div class="access-threshold">
+      <div class="access-copy">
+        <p class="tiny muted access-kicker">woolroom · self-hosted here</p>
+        <h1 class="logo access-logo">woolroom</h1>
+        <p class="access-note">a quiet room, shared.</p>
       </div>
-      <p id="status" class="tiny muted access-status" role="status" aria-live="polite"></p>
-      <p class="tiny muted access-footnote">if someone invited you here, your browser will continue into the room after this.</p>
-    </form>
 
-    <div class="access-guest">
-      <button id="guest-button" class="ghost access-guest-button" type="button">peek inside as a guest</button>
-      <p id="guest-status" class="tiny muted access-guest-status" role="status" aria-live="polite"></p>
+      <div class="access-guest">
+        <p class="access-guest-lede">the room is awake. the window is open.</p>
+        <button id="guest-button" class="ghost access-guest-button" type="button"
+                aria-describedby="guest-description">watch the room</button>
+        <p id="guest-description" class="tiny muted access-guest-privacy">read-only · no sign-in · the public demo · nothing you do changes the room</p>
+        <p id="guest-status" class="tiny muted access-guest-status" role="status" aria-live="polite"></p>
+      </div>
+
+      <details id="owner-access" class="access-owner">
+        <summary>one of the room's humans?</summary>
+        <form id="access-form" class="access-form">
+          <p class="muted access-note access-note-quiet">say the private word once on this device. after that, the room should stay out of your way.</p>
+          <label class="tiny muted access-label" for="password">private word</label>
+          <div class="row access-row">
+            <input
+              id="password"
+              class="input"
+              type="password"
+              placeholder="the private word"
+              autocomplete="current-password"
+              maxlength="256">
+            <button class="primary" type="submit">enter as a human</button>
+          </div>
+          <p id="status" class="tiny muted access-status" role="status" aria-live="polite"></p>
+          <p class="tiny muted access-footnote">the private word opens the door, then keeps this device inside.</p>
+        </form>
+      </details>
     </div>
   </section>
 </main>
@@ -57,11 +71,29 @@
   const form = document.getElementById("access-form");
   const password = document.getElementById("password");
   const status = document.getElementById("status");
-  const guest = document.querySelector(".access-guest");
+  const ownerAccess = document.getElementById("owner-access");
+  const guestAccess = document.querySelector(".access-guest");
   const guestButton = document.getElementById("guest-button");
   const guestStatus = document.getElementById("guest-status");
   const params = new URLSearchParams(location.search);
-  const next = params.get("next") || "/";
+  const nextValues = params.getAll("next");
+  const requestedNext = nextValues.length === 1 ? nextValues[0] : "/";
+  let next = `${location.origin}/`;
+  let nextPath = "/";
+  try {
+    const parsedNext = new URL(requestedNext, location.origin);
+    const localAbsolutePath =
+      requestedNext.startsWith("/") &&
+      !requestedNext.startsWith("//") &&
+      !requestedNext.includes("\\") &&
+      !/[\u0000-\u001F\u007F]/.test(requestedNext);
+    if (localAbsolutePath && parsedNext.origin === location.origin) {
+      next = parsedNext.href;
+      nextPath = parsedNext.pathname;
+    }
+  } catch (_) {}
+  const inviteEntry = nextPath.startsWith("/join/");
+  const coarsePointer = matchMedia("(pointer: coarse)").matches;
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -85,14 +117,36 @@
   });
 
   if (document.body.dataset.guestOpen === "true") {
-    form.before(guest);
     guestButton.classList.replace("ghost", "primary");
-    guestButton.textContent = "watch the room";
   } else {
-    password.focus();
+    ownerAccess.open = true;
+    if (!coarsePointer) password.focus();
   }
 
-  // Read-only peek: no password, no session — just the quiet room, watching.
+  if (inviteEntry) {
+    document.body.classList.add("is-invite-entry");
+    ownerAccess.parentNode.insertBefore(ownerAccess, guestAccess);
+    ownerAccess.querySelector("summary").textContent = "enter as an invited human";
+    ownerAccess.open = true;
+    guestButton.classList.replace("primary", "ghost");
+    guestButton.textContent = "visit the demo instead";
+    document.querySelector(".access-guest-lede").textContent =
+      "just looking? the demo window is still open.";
+    if (!coarsePointer) password.focus();
+  }
+
+  ownerAccess.addEventListener("toggle", () => {
+    if (!ownerAccess.open) return;
+    if (coarsePointer && document.activeElement !== ownerAccess.querySelector("summary")) return;
+    requestAnimationFrame(() => {
+      password.focus({ preventScroll: true });
+      form.scrollIntoView({
+        block: "nearest",
+        behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      });
+    });
+  });
+
   guestButton.addEventListener("click", async () => {
     guestStatus.textContent = "";
     guestButton.disabled = true;

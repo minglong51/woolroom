@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-08-27 (woolpack Trusted Publishing; standalone woolpack workspace 2026-08-26)
+**Refreshed:** 2026-09-02 (access redirect and guest-to-owner boundary)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -29,7 +29,10 @@ code is right and this doc is stale.
   per-route policies win), and an auth-failure throttle: failed (401/403)
   attempts on `POST /api/site-access` and `/admin/*` are counted per
   client IP in-process (single-worker by design) — 5 and 20 per 15
-  minutes respectively, then 429; successes never count.
+  minutes respectively, then 429; successes never count. Access-page
+  continuation accepts only same-origin absolute paths in both the server
+  redirect and inline client, and successful site-password authentication
+  clears the guest cookie before the browser continues as an owner.
   Serves `/` with `INDEX_VOICE` substituted and
   `?v=<APP_VERSION>` cache-busted statics (immutable when the version
   matches, revalidate otherwise); `/api/voice` and `/api/packs` ride the
@@ -81,7 +84,9 @@ code is right and this doc is stale.
   the cap when the DB count is unavailable) so the budget circuit-breaker
   can never fail open on a metered key.
 - `pet_state.py` — the one builder of the `pet_state` payload for REST, WS
-  initial push, and scheduler broadcasts; resolves the guest demo pet.
+  initial push, and scheduler broadcasts; resolves the guest demo pet and
+  projects guest state through a top-level allowlist plus nested scene/event
+  allowlists.
 - `scene_fx.py` — short-lived in-process scene effects (quirk visibility).
 - `shared_trace.py` — turns the partner's recent action into an ambient
   scene cue via `TRACE_CUE_MAP`.
@@ -216,7 +221,8 @@ code is right and this doc is stale.
 
 - `index.html` — the whole SPA shell (landing/adopt/room/ceremony), with
   `{{VOICE_*}}` placeholders substituted at serve time. `access.html` — the
-  site-password page. `style.css` — the room's look + rig animation classes.
+  guest-first access threshold with invite-aware owner disclosure. `style.css`
+  — the room's look + rig animation classes.
   `favicon.svg` — the cat mark. `app.js` — boot glue.
 - `js/state.js` + `js/api.js` — Alpine store and REST/WS client calls.
 - `js/wool.js` — the scene core: boot, the light-not-dye clock, motion

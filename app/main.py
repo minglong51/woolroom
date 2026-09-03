@@ -9,7 +9,7 @@ from collections import deque
 from contextlib import asynccontextmanager
 from pathlib import Path
 from time import monotonic
-from urllib.parse import parse_qs, quote
+from urllib.parse import parse_qs, quote, urlsplit
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -23,6 +23,7 @@ from app.api.ws import router as ws_router
 from app.auth.site_access import (
     GUEST_ACCESS_COOKIE,
     SITE_ACCESS_COOKIE,
+    clear_guest_access_cookie,
     clear_site_access_cookie,
     guest_access_enabled,
     has_guest_access,
@@ -65,6 +66,21 @@ def _compute_app_version() -> str:
 APP_VERSION = _compute_app_version()
 SITE_ACCESS_ALLOWLIST = {"/healthz", "/access", "/api/site-access", "/api/guest-access"}
 GUEST_HTTP_ALLOWLIST = {"/", "/api/me", "/api/guest/scene", "/api/voice", "/api/packs"}
+
+
+def _safe_access_next(value: str | None) -> str:
+    if (
+        not value
+        or not value.startswith("/")
+        or value.startswith("//")
+        or "\\" in value
+        or any(ord(char) < 0x20 or ord(char) == 0x7F for char in value)
+    ):
+        return "/"
+    parsed = urlsplit(value)
+    if parsed.scheme or parsed.netloc:
+        return "/"
+    return value
 
 
 def _configure_logging() -> None:
@@ -355,7 +371,11 @@ def create_app() -> FastAPI:
         if not site_access_enabled():
             return RedirectResponse(url="/", status_code=303)
         if has_site_access(request.cookies.get(SITE_ACCESS_COOKIE)):
-            return RedirectResponse(url=request.query_params.get("next", "/"), status_code=303)
+            next_values = request.query_params.getlist("next")
+            next_value = next_values[0] if len(next_values) == 1 else None
+            return RedirectResponse(
+                url=_safe_access_next(next_value), status_code=303
+            )
         resp = Response(
             content=_ACCESS_HTML.replace(
                 "__GUEST_OPEN__",
@@ -375,6 +395,7 @@ def create_app() -> FastAPI:
         resp = JSONResponse({"ok": True})
         resp.headers["Cache-Control"] = "no-store"
         set_site_access_cookie(resp)
+        clear_guest_access_cookie(resp)
         return resp
 
     @app.post("/api/site-access/logout")

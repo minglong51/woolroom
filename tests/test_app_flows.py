@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -747,6 +748,38 @@ def test_site_access_gate_requires_password_before_app_session(tmp_path: Path, m
         landing = client.get("/")
         assert landing.status_code == 200
         assert "woolroom" in landing.text.lower()
+
+
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        ("", "/"),
+        ("next=%2Fhealthz", "/healthz"),
+        ("next=%2Fjoin%2Ftoken%3Fvia%3Dinvite", "/join/token?via=invite"),
+        ("next=relative", "/"),
+        ("next=https%3A%2F%2Fevil.example", "/"),
+        ("next=%2F%2Fevil.example", "/"),
+        ("next=%2F%5Cevil.example", "/"),
+        ("next=%2Fbad%0D%0ALocation%3Aevil", "/"),
+        ("next=%2F.%2F%2Fevil.example", "/.//evil.example"),
+        ("next=%2F%252e%2F%2Fevil.example", "/%2e//evil.example"),
+        ("next=%2Fhealthz&next=https%3A%2F%2Fevil.example", "/"),
+        ("next=https%3A%2F%2Fevil.example&next=%2Fhealthz", "/"),
+    ],
+)
+def test_site_access_continuation_is_local(
+    tmp_path: Path, monkeypatch, query: str, expected: str
+) -> None:
+    app = _load_app(tmp_path, monkeypatch, site_password="open sesame")
+
+    with TestClient(app) as client:
+        granted = client.post("/api/site-access", json={"password": "open sesame"})
+        assert granted.status_code == 200
+
+        path = f"/access?{query}" if query else "/access"
+        response = client.get(path, follow_redirects=False)
+        assert response.status_code == 303
+        assert response.headers["location"] == expected
 
 
 def test_site_access_throttles_failures_per_ip(tmp_path: Path, monkeypatch) -> None:
