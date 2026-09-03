@@ -664,12 +664,12 @@
       <div class="adopt-mini-scene ceremony-preview" aria-hidden="true"
            :data-species="ceremonyPet()?.species || secondaryAdoptionSpecies()"
            :data-coat="ceremonyPet()?.coat || adoptionDefaults.secondary.coat"
-           :style="previewCoatStyle(ceremonyPet()?.species || secondaryAdoptionSpecies(), ceremonyPet()?.coat || adoptionDefaults.secondary.coat)">
+           :style="ceremonyPreviewCoatStyle()">
         <svg viewBox="100 240 200 220" preserveAspectRatio="xMidYMid meet">
           <rect x="100" y="240" width="200" height="96" fill="var(--wall)"/>
           <rect x="100" y="336" width="200" height="124" fill="var(--floor)"/>
           <ellipse cx="200" cy="446" rx="98" ry="26" fill="var(--rug)"/>
-          <g x-html="petPreviewSvg(ceremonyPet()?.species || secondaryAdoptionSpecies())"></g>
+          <g x-html="ceremonyPreviewSvg()"></g>
         </svg>
       </div>
       <p class="tiny muted">{{VOICE_CEREMONY_DRAWER_NOTE}}</p>

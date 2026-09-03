@@ -38,7 +38,7 @@ def test_public_distribution_api_is_exposed() -> None:
     assert all(hasattr(woolroom, name) for name in public_api)
     assert isinstance(woolroom.__version__, str) and woolroom.__version__
     assert isinstance(woolroom.PLUGIN_API_VERSION, int)
-    assert woolroom.PLUGIN_API_VERSION == 1
+    assert woolroom.PLUGIN_API_VERSION == 2
     assert callable(woolroom.create_app)
     assert callable(woolroom.migration_path)
     assert get_type_hints(woolroom.create_app)["return"].__name__ == "FastAPI"

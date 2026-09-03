@@ -28,7 +28,9 @@ export function createState() {
     pets: [],               // every room of the household, founding first
     activePetId: null,
     guest: false,           // read-only visitor — no session, watch only
-    card: null,             // private site overlay for the active pet, if configured
+    card: null,             // active-pet alias of the private cache entry
+    petCardCache: {},       // private PetCardV1 entries, keyed by visible pet id
+    _cardLoads: new Set(),
     voice: null,            // client copy pack (GET /api/voice), set at boot
     packs: null,            // pack-species figure assets (GET /api/packs), set at boot
     adoptionDefaults: {

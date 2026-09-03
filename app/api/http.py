@@ -464,14 +464,25 @@ async def active_card(
         )
     )
     if guest:
-        pet = await resolve_guest_pet(session)
-        if pet is None or pet.id != pet_id:
+        pinned_pet = await resolve_guest_pet(session)
+        pet = None
+        if pinned_pet is not None and pinned_pet.id == pet_id:
+            pet = pinned_pet
+        elif pinned_pet is not None:
+            visit = visits.visit_for(pinned_pet.id)
+            if (
+                visit is not None
+                and visit["role"] == "host"
+                and visit["visitor_pet_id"] == pet_id
+            ):
+                pet = await repo.get_pet(session, pet_id)
+        if pet is None:
             raise HTTPException(status_code=404, detail="guest card is not available")
         return {"card": await _guest_card(request, pet)}
 
     if user is not None:
         participant = await repo.get_participant(session, pet_id, user.id)
-        if participant is None or participant.confirmed_adoption_at is None:
+        if participant is None:
             raise HTTPException(status_code=403, detail="not your room")
         pet = await repo.get_pet(session, pet_id)
         if pet is None:

@@ -52,7 +52,7 @@ export const woolVisitMethods = {
     // mid-visit boot does — simply already here at the rug's edge. Without
     // this he paints at the SVG origin, right on top of the resident.
     if (this.pet?.visit?.role === "host" && this.pet.visit.visitor) {
-      this._visitorArt = this.visitorArtFor(this.pet.visit.visitor.species, this.pet.visit.visitor.coat);
+      this._visitorArt = this.visitorArtFor(this.pet.visit.visitor);
       this._visitor = { x: -74, y: 8 };
       this.$nextTick(() => this._visitorSetPos(-74, 8));
     }
@@ -64,7 +64,7 @@ export const woolVisitMethods = {
     if (!this._wool) return;
     if (prev?.id === next?.id) return;
     if (next?.role === "host" && next.visitor) {
-      this._visitorArt = this.visitorArtFor(next.visitor.species, next.visitor.coat);
+      this._visitorArt = this.visitorArtFor(next.visitor);
       this._woolVisitArrived(next);
     } else if (prev?.role === "host" && !next) {
       this._woolVisitLeft(prev);

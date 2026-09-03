@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-09-02 (public schema inspection and adoption boundary)
+**Refreshed:** 2026-09-03 (private visible-pet card boundary)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -94,7 +94,9 @@ code is right and this doc is stale.
 - `pet_state.py` — the one builder of the `pet_state` payload for REST, WS
   initial push, and scheduler broadcasts; resolves the guest demo pet and
   projects guest state through a top-level allowlist plus nested scene/event
-  allowlists.
+  allowlists. A host-side visit adds only its id/role and the visible
+  visitor's id/name/species/coat/animation/scale; sibling, household, and
+  away-visit details remain private.
 - `scene_fx.py` — short-lived in-process scene effects (quirk visibility).
 - `shared_trace.py` — turns the partner's recent action into an ambient
   scene cue via `TRACE_CUE_MAP`.
@@ -207,9 +209,14 @@ code is right and this doc is stale.
   method after validating its pet binding, exact schema, species, and coat;
   null is the direct-hosting default. Pet-scoped `/api/card` safely refreshes
   that projection after realtime identity changes without relying on a
-  cross-device active-room pointer. `/api/room` and `/api/coat` return the
-  newly bound card with their mutation response. These dynamic card responses
-  are `private, no-store`.
+  cross-device active-room pointer. An authenticated caller may request any
+  participating pet, including a ceremony-pending one, but this projection
+  does not weaken the confirmed-participant checks on room/action routes. A
+  guest may request only the pinned pet or the visitor in that pet's current
+  host-side playdate; unknown, unrelated, ended, and away-side subjects fail
+  before the provider is called. `/api/room` and `/api/coat` return the newly
+  bound card with their mutation response. These dynamic card responses are
+  `private, no-store`.
   The public four-field adoption-default DTO drives previews and coat choices;
   the server fixes each adoption to its configured species and validates the
   chosen coat within that species. `/api/action` holds the mutation guard and
@@ -263,9 +270,12 @@ code is right and this doc is stale.
   — the room's look + rig animation classes.
   `favicon.svg` — the cat mark. `app.js` — boot glue.
 - `js/state.js` + `js/api.js` — Alpine store and REST/WS client calls; the
-  active provider card is held separately from the public packs registry and
-  atomically replaced with room/coat transitions. Boot also fetches the public
-  adoption-default DTO and seeds primary/secondary coat selection from it.
+  reactive private card cache is keyed by pet id and held separately from the
+  public packs registry. Boot seeds the active entry, then fetches only a
+  ceremony-pending pet and the current host-side visitor; room/coat/state
+  changes select, invalidate, refill, or discard entries by exact
+  pet/species/coat subject. Boot also fetches the public adoption-default DTO
+  and seeds primary/secondary coat selection from it.
 - `js/wool.js` — the scene core: boot, the light-not-dye clock, motion
   primitives and locomotion, touch resolution, presentation reads
   (traces, rig style, poses). A matching card supplies the active pet's
@@ -276,13 +286,15 @@ code is right and this doc is stale.
   the verb performances).
 - `js/figures.js` — figure art + the rig class contract (the builtin cat;
   pack figures satisfy the same contract), adoption/ceremony profile previews,
-  and coat palette application. A
-  matching active card is resolved as a one-pet ephemeral catalog and never
-  merged into the public `/api/packs` map.
+  visitor figures, and coat palette application. A matching cached card is
+  resolved as a one-pet ephemeral catalog for the active, ceremony, or visitor
+  subject and never merged into the public `/api/packs` map. Initial-adoption
+  previews have no persisted pet id and deliberately resolve public art only.
 - `js/sound.js` — WebAudio synth: per-species motifs (the cat voice) and
   room sounds; no audio assets.
-- `js/ws.js` — the live channel, reconnects, pet-scoped card refresh after a
-  realtime species/coat change, stale old-room frame rejection, and
+- `js/ws.js` — the live channel, reconnects, pet-scoped card invalidation and
+  visible-card synchronization after realtime coat/visit/household changes,
+  stale old-room frame rejection, and
   shared-trace cue derivation (mirrors `TRACE_CUE_MAP`; pinned by
   `tests/test_room_contract.py`).
 - `js/presence.js`, `js/memory.js`, `js/quirks.js`, `js/ui.js` — presence
@@ -310,7 +322,10 @@ code is right and this doc is stale.
   parse-again subject-binding boundary. Providers return `BoundPetCard`; core
   verifies and strips its pet id before emitting the exact `PetCardV1` DTO.
   Provider exceptions, unknown card fields, and pet/species/coat mismatches
-  fail closed.
+  fail closed. Plugin API v2 expands owner calls from only the active room to
+  any participating pet (including ceremony-pending and playdate
+  subjects), and guest calls from only the pin to its current visible visitor;
+  subjects convey projection visibility only, never room/action authority.
 - `database.py` — installed SQLite boundary and `woolroom-db` CLI.
   `inspect_database()` classifies empty, known-versioned, canonical
   versionless, and unsafe version states without writing. `upgrade_database()`

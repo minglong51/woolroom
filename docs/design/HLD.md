@@ -1,6 +1,6 @@
 # woolroom — High-Level Design
 
-**Refreshed:** 2026-09-02 (public schema inspection and adoption boundary)
+**Refreshed:** 2026-09-03 (private visible-pet card boundary)
 
 woolroom is a self-hostable shared ambient pet: one quiet animal in a small
 room, kept by two people. A rule-driven brain (mood drift, memory, seeded
@@ -72,7 +72,11 @@ in-process.
   room is one SVG animated through CSS classes on a rig contract;
   `js/wool.js` renders scene state and trace cues, `js/figures.js` holds the
   builtin cat art, `js/sound.js` synthesizes the voice (WebAudio, no
-  assets), `js/ws.js` owns the live channel.
+  assets), `js/ws.js` owns the live channel. Private cards live in a
+  reactive, in-memory pet-id cache separate from the public pack catalog, so
+  the active pet, a pending ceremony pet, and a visible playdate visitor use
+  the same personal figure without publishing it. Pre-persistence adoption
+  previews remain generic.
 - **API** (`app/api/`) — REST for actions/room admin, one WebSocket for
   scene state and presence. Auth is a signed session cookie; an optional
   outer site password and a read-only guest mode sit in front.
@@ -102,9 +106,9 @@ in-process.
   provider lifecycle/subjects, the default empty provider, validated auth
   namespace, validated primary/secondary adoption defaults, packaged Alembic
   revisions, and the fail-closed SQLite inspection/upgrade/adoption API. A
-  trusted provider may own database access but receives only the active owner
-  or pinned-guest subject and returns one card-shaped projection; it never
-  receives or mutates the public registries.
+  trusted provider may own database access but receives only an authenticated
+  user's participating-pet subject or a guest-visible subject and returns one
+  card-shaped projection; it never receives or mutates the public registries.
 - **Woolpack distribution** (`packages/woolpack/`) — standalone pack-format
   v1 validator, SVG sanitizer, authoring lint, static render board, and
   scaffold CLI (`woolpack new|render|lint`), plus the versioned `PetCardV1`
@@ -143,9 +147,12 @@ in-process.
   versioned `PetCardV1` field set inside a `BoundPetCard`; the binding is
   checked against the requested pet and stripped before serialization. Owner
   and guest cards travel only in dynamic `private, no-store` envelopes. Guest
-  lookup starts from the pinned production demo pet and requires the returned
-  pet, species, and coat to match; provider errors and extra fields fail
-  closed. Private cards never enter
+  lookup starts from the pinned production demo pet and permits only that pet
+  or the visitor currently visible in its host-side playdate. Authenticated
+  lookup requires participation, including a ceremony-pending participant;
+  card visibility grants no room or action access. Every returned pet,
+  species, and coat must match; provider errors and extra fields fail closed.
+  Private cards never enter
   `CLIENT_VOICE`, `PACK_ASSETS`, `/api/voice`, or `/api/packs`.
 - **Database boundary.** Inspection is read-only. Unknown or multiple revision
   markers and every nonempty unversioned schema are refused before migration
@@ -160,7 +167,8 @@ in-process.
   changed.
 - **Auth gates.** Signed-cookie sessions (no passwords); invite-only
   pairing; optional outer site password for private deployments; read-only
-  guest mode resolves only one pinned demo pet with private fields stripped
+  guest mode resolves one pinned demo pet plus only its current host-side
+  visitor, with both scene shapes stripped through explicit allowlists
   server-side. Direct hosting uses distinct Woolroom session/site/guest salts
   and cookie names. A composed app may replace all names and salts with one
   validated `AuthNamespace`; pairwise-distinct validation keeps the three

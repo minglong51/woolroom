@@ -249,6 +249,15 @@ GUEST_SCENE_EVENT_KEYS = frozenset({
 })
 GUEST_SCENE_STEP_KEYS = frozenset({"mode", "duration_ms", "relation"})
 GUEST_SCENE_FX_KEYS = frozenset({"mode", "duration_ms", "remaining_ms", "event_id"})
+GUEST_VISIT_KEYS = frozenset({"id", "role"})
+GUEST_VISITOR_KEYS = frozenset({
+    "id",
+    "name",
+    "species",
+    "coat",
+    "animation_state",
+    "render_scale",
+})
 
 
 def sanitize_scene_event(event: dict) -> dict:
@@ -295,6 +304,26 @@ def sanitize_scene_payload(payload: dict) -> dict:
             for event in scene_events
             if isinstance(event, dict)
         ]
+    visit = payload.get("visit")
+    if (
+        isinstance(visit, dict)
+        and visit.get("role") == "host"
+        and isinstance(visit.get("visitor"), dict)
+    ):
+        sanitized["visit"] = {
+            **{
+                key: value
+                for key, value in visit.items()
+                if key in GUEST_VISIT_KEYS
+            },
+            "visitor": {
+                key: value
+                for key, value in visit["visitor"].items()
+                if key in GUEST_VISITOR_KEYS
+            },
+        }
+    elif "visit" in payload:
+        sanitized["visit"] = None
     return sanitized
 
 

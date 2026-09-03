@@ -39,6 +39,7 @@ GUEST_SCENE_KEYS = {
     "hungry",
     "scene_fx",
     "scene_events",
+    "visit",
     "app_version",
 }
 
