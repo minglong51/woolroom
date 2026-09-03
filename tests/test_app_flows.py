@@ -1031,6 +1031,167 @@ def test_plain_action_sets_default_scene_fx(tmp_path: Path, monkeypatch) -> None
         assert response_event["action"] == "walk"
 
 
+async def test_pet_scoped_ignore_history_engages_first_daily_action_and_after_ignore(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    app = _load_app(tmp_path, monkeypatch)
+
+    from sqlalchemy import select
+
+    import app.runtime.actions as actions_module
+    from app.storage.db import SessionLocal
+    from app.storage.models import BufferEvent
+
+    monkeypatch.setattr(actions_module, "decide_ignore", lambda pet: True)
+
+    with TestClient(app) as owner, TestClient(app) as partner:
+        owner.post("/api/start", json={"display_name": "Ash"})
+        adopted = owner.post(
+            "/api/adopt",
+            json={
+                "name": "Purl",
+                "quirks": ["content_sigher", "one_eye_napper"],
+            },
+        )
+        assert adopted.status_code == 200
+        pet_id = adopted.json()["pet"]["id"]
+        invite = owner.post("/api/invite")
+        partner.get(urlparse(invite.json()["url"]).path, follow_redirects=False)
+        joined = partner.post("/api/start", json={"display_name": "Wren"})
+        assert joined.status_code == 200
+
+        responses = [
+            owner.post("/api/action", json={"type": "greet"}),
+            partner.post("/api/action", json={"type": "greet"}),
+            owner.post("/api/action", json={"type": "pet"}),
+        ]
+        assert all(response.status_code == 200 for response in responses)
+        assert [
+            any(
+                modifier["mode"] == "ignored"
+                for modifier in response.json()["scene_event"]["modifiers"]
+            )
+            for response in responses
+        ] == [False, True, False]
+
+        async with SessionLocal() as session:
+            rows = await session.execute(
+                select(BufferEvent)
+                .where(
+                    BufferEvent.pet_id == pet_id,
+                    BufferEvent.event_type.in_(("greet", "pet")),
+                )
+                .order_by(BufferEvent.id)
+            )
+            assert [
+                (event.event_type, event.meta["ignored"])
+                for event in rows.scalars()
+            ] == [
+                ("greet", False),
+                ("greet", True),
+                ("pet", False),
+            ]
+
+
+async def test_first_daily_action_uses_the_home_timezone_boundary(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("HOME_TZ", "America/Los_Angeles")
+    app = _load_app(tmp_path, monkeypatch)
+
+    from datetime import UTC, datetime
+    from zoneinfo import ZoneInfo
+
+    import app.runtime.actions as actions_module
+    from app.storage.db import SessionLocal
+    from app.storage.models import BufferEvent
+
+    monkeypatch.setattr(actions_module, "decide_ignore", lambda pet: True)
+    monkeypatch.setattr(
+        actions_module,
+        "local_now",
+        lambda: datetime(2026, 9, 3, 0, 30, tzinfo=ZoneInfo("America/Los_Angeles")),
+    )
+
+    with TestClient(app) as client:
+        started = client.post("/api/start", json={"display_name": "Ash"})
+        adopted = client.post(
+            "/api/adopt",
+            json={
+                "name": "Purl",
+                "quirks": ["content_sigher", "one_eye_napper"],
+            },
+        )
+        assert adopted.status_code == 200
+
+        async with SessionLocal() as session:
+            session.add(
+                BufferEvent(
+                    pet_id=adopted.json()["pet"]["id"],
+                    user_id=started.json()["user_id"],
+                    event_type="greet",
+                    meta={"ignored": False},
+                    created_at=datetime(2026, 9, 3, 6, 30, tzinfo=UTC).replace(
+                        tzinfo=None
+                    ),
+                )
+            )
+            await session.commit()
+
+        response = client.post("/api/action", json={"type": "greet"})
+        assert response.status_code == 200
+        assert all(
+            modifier["mode"] != "ignored"
+            for modifier in response.json()["scene_event"]["modifiers"]
+        )
+
+
+async def test_unmarked_legacy_action_cannot_enable_an_ignore(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    app = _load_app(tmp_path, monkeypatch)
+
+    import app.runtime.actions as actions_module
+    from app.storage.db import SessionLocal
+    from app.storage.models import BufferEvent
+    from app.time import utc_now
+
+    monkeypatch.setattr(actions_module, "decide_ignore", lambda pet: True)
+
+    with TestClient(app) as client:
+        started = client.post("/api/start", json={"display_name": "Ash"})
+        adopted = client.post(
+            "/api/adopt",
+            json={
+                "name": "Purl",
+                "quirks": ["content_sigher", "one_eye_napper"],
+            },
+        )
+        assert adopted.status_code == 200
+
+        async with SessionLocal() as session:
+            session.add(
+                BufferEvent(
+                    pet_id=adopted.json()["pet"]["id"],
+                    user_id=started.json()["user_id"],
+                    event_type="greet",
+                    meta={},
+                    created_at=utc_now(),
+                )
+            )
+            await session.commit()
+
+        response = client.post("/api/action", json={"type": "pet"})
+        assert response.status_code == 200
+        assert all(
+            modifier["mode"] != "ignored"
+            for modifier in response.json()["scene_event"]["modifiers"]
+        )
+
+
 def test_origin_line_appears_in_api_me_after_adoption(tmp_path: Path, monkeypatch) -> None:
     app = _load_app(tmp_path, monkeypatch)
 

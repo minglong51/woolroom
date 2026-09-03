@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-09-03 (private visible-pet card boundary)
+**Refreshed:** 2026-09-03 (persisted action-ignore guard)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -72,10 +72,12 @@ code is right and this doc is stale.
 
 - `actions.py` — the action orchestration `/api/action` delegates to
   (`ActionIn` + `perform_action`): HMAC-fingerprinted `origin_id`
-  idempotency receipts, the buffer write, mood nudge + quirk effect,
-  scene-fx modifier resolution, milestone promotion, `respond()`, and the
-  post-commit room broadcasts. Raises `HTTPException` — its 409/422
-  shapes are the endpoint's contract.
+  idempotency receipts, the buffer write, pet-scoped ignore resolution from
+  the prior action's persisted `BufferEvent.meta` outcome (the first
+  `HOME_TZ`-local action each day and an action after an ignore always
+  engage), mood nudge + quirk effect, scene-fx modifier resolution, milestone
+  promotion, `respond()`, and the post-commit room broadcasts. Raises
+  `HTTPException` — its 409/422 shapes are the endpoint's contract.
 - `respond.py` — the only entry routes call: ignore check (sleeping /
   `ignore_rate`) → LLM attempt → validator → phrasebook fallback;
   utterance rate limit (≤1 per pet per 5 min; `*...*` body lines exempt).
@@ -247,7 +249,7 @@ code is right and this doc is stale.
 ## `app/memory/`, `app/scheduler/`, `app/storage/`, `app/eval/`
 
 - `memory/buffer.py` — rolling window of recent events (no semantic user
-  content), action receipts.
+  content), action receipts, and latest-event lookup by event type.
 - `memory/moments.py` — 1–2 shared moments promoted per week from buffer.
 - `memory/core.py` — permanent facts (names, adoption date, firsts).
 - `scheduler/jobs.py` — APScheduler jobs: `mood_drift`, `daily_outing`,
