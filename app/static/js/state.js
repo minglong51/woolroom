@@ -28,9 +28,16 @@ export function createState() {
     pets: [],               // every room of the household, founding first
     activePetId: null,
     guest: false,           // read-only visitor — no session, watch only
-    card: null,             // private site overlay for the active pet, if configured
+    card: null,
+    petCardCache: {},
+    _cardLoads: new Set(),
+    _cardCacheGeneration: 0,
     voice: null,            // client copy pack (GET /api/voice), set at boot
     packs: null,            // pack-species figure assets (GET /api/packs), set at boot
+    adoptionDefaults: {
+      primary: { species: "cat", coat: "marmalade" },
+      secondary: { species: "cat", coat: "marmalade" },
+    },
     quirks: [],
     pickedQuirks: [],
     quirkAudition: null,
@@ -80,6 +87,8 @@ export function createState() {
     partnerAbsenceMinutes: null,
     partnerArrivedFlash: false,
     _partnerArrivedTimer: null,
+    guestNoticeFlash: false,
+    _guestNoticeTimer: null,
     currentHour: new Date().getHours() + new Date().getMinutes() / 60,
     _hourTimer: null,
     bootVersion: null,

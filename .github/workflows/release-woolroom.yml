@@ -1,0 +1,275 @@
+name: publish-woolroom
+
+on:
+  release:
+    types: [published]
+
+concurrency:
+  group: publish-woolroom-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: startsWith(github.event.release.tag_name, 'woolroom-v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.package.outputs.version }}
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: "0.11.7"
+          enable-cache: false
+      - name: Validate tag and version parity
+        id: package
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          readarray -t versions < <(python3 - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          core = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+          pack = tomllib.loads(
+              Path("packages/woolpack/pyproject.toml").read_text(encoding="utf-8")
+          )
+          core_version = core["project"]["version"]
+          pack_version = pack["project"]["version"]
+          dependency = f"woolpack=={pack_version}"
+          if core_version != pack_version:
+              raise SystemExit("woolroom and woolpack versions must match")
+          if dependency not in core["project"]["dependencies"]:
+              raise SystemExit("woolroom must pin the matching woolpack version")
+          print(core_version)
+          print(pack_version)
+          PY
+          )
+          core_version="${versions[0]}"
+          test "${versions[1]}" = "$core_version"
+          test "$RELEASE_TAG" = "woolroom-v${core_version}"
+          tag_sha="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
+          head_sha="$(git rev-parse HEAD)"
+          test "$tag_sha" = "$GITHUB_SHA"
+          test "$head_sha" = "$GITHUB_SHA"
+          git merge-base --is-ancestor "$head_sha" refs/remotes/origin/main
+          printf 'version=%s\n' "$core_version" >> "$GITHUB_OUTPUT"
+      - name: Require Woolpack release ordering
+        shell: bash
+        env:
+          WOOLROOM_VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          set -euo pipefail
+          index_root="$(mktemp -d)"
+          uv venv "$index_root/venv"
+          uv pip install --no-deps --no-sources --refresh-package woolpack \
+            --default-index https://pypi.org/simple \
+            --python "$index_root/venv/bin/python" "woolpack==${WOOLROOM_VERSION}"
+          "$index_root/venv/bin/python" - <<'PY'
+          import os
+          from importlib.metadata import version
+
+          if version("woolpack") != os.environ["WOOLROOM_VERSION"]:
+              raise SystemExit("the public Woolpack version does not match Woolroom")
+          PY
+      - name: Build release and local compatibility artifacts
+        run: |
+          set -euo pipefail
+          release_epoch="$(git show -s --format=%ct HEAD)"
+          export SOURCE_DATE_EPOCH="$release_epoch"
+          uv build --package woolpack --no-sources --clear --no-create-gitignore \
+            --out-dir pack-dist
+          uv build --package woolroom --no-sources --clear --no-create-gitignore \
+            --out-dir dist
+          python3 scripts/normalize_sdist.py \
+            --source-date-epoch "$release_epoch" pack-dist/*.tar.gz dist/*.tar.gz
+      - name: Verify distribution metadata
+        run: uvx --from 'twine==7.0.0' twine check --strict dist/*
+      - name: Inspect and smoke release artifacts
+        shell: bash
+        env:
+          WOOLROOM_VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          set -euo pipefail
+          wheel="dist/woolroom-${WOOLROOM_VERSION}-py3-none-any.whl"
+          sdist="dist/woolroom-${WOOLROOM_VERSION}.tar.gz"
+          pack_wheel="pack-dist/woolpack-${WOOLROOM_VERSION}-py3-none-any.whl"
+          test -f "$wheel"
+          test -f "$sdist"
+          test -f "$pack_wheel"
+          test "$(find dist -maxdepth 1 -type f | wc -l | tr -d ' ')" = "2"
+
+          WOOLROOM_WHEEL="$wheel" WOOLROOM_SDIST="$sdist" python3 - <<'PY'
+          import os
+          import tarfile
+          from email.parser import BytesParser
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          expected_version = os.environ["WOOLROOM_VERSION"]
+          migration_files = {
+              path.as_posix() for path in Path("woolroom/migrations/versions").glob("*.py")
+          }
+          if not migration_files:
+              raise SystemExit("source tree has no migration revisions")
+          required = {
+              "app/main.py",
+              "app/static/index.html",
+              "woolroom/__init__.py",
+              "woolroom/database.py",
+              "woolroom/migrations/env.py",
+          } | migration_files
+          with ZipFile(os.environ["WOOLROOM_WHEEL"]) as archive:
+              names = set(archive.namelist())
+              missing = sorted(required - names)
+              if missing:
+                  raise SystemExit(f"wheel is missing runtime files: {missing}")
+              metadata_name = next(
+                  name for name in names if name.endswith(".dist-info/METADATA")
+              )
+              metadata = BytesParser().parsebytes(archive.read(metadata_name))
+              if metadata["Name"] != "woolroom":
+                  raise SystemExit("wheel project name is not woolroom")
+              if metadata["Version"] != expected_version:
+                  raise SystemExit("wheel version does not match the release tag")
+              if metadata["Description-Content-Type"] != "text/markdown":
+                  raise SystemExit("wheel README is not Markdown metadata")
+              if not metadata.get_payload().startswith("# woolroom"):
+                  raise SystemExit("wheel README is missing from package metadata")
+              if metadata["License-Expression"] != "MIT AND CC0-1.0":
+                  raise SystemExit("wheel license expression has drifted")
+              if f"woolpack=={expected_version}" not in metadata.get_all("Requires-Dist", []):
+                  raise SystemExit("wheel lost exact Woolpack version parity")
+              license_files = {
+                  name.rsplit("/", 1)[-1]
+                  for name in names
+                  if ".dist-info/licenses/" in name
+              }
+              if license_files != {"LICENSE", "LICENSE-CC0"}:
+                  raise SystemExit("wheel license texts have drifted")
+              entry_points_name = next(
+                  name for name in names if name.endswith(".dist-info/entry_points.txt")
+              )
+              if "woolroom-db = woolroom.database:main" not in archive.read(
+                  entry_points_name
+              ).decode("utf-8"):
+                  raise SystemExit("wheel lost the database CLI")
+
+          prefix = f"woolroom-{expected_version}/"
+          with tarfile.open(os.environ["WOOLROOM_SDIST"], "r:gz") as archive:
+              names = set(archive.getnames())
+              missing = sorted(prefix + name for name in required if prefix + name not in names)
+              if missing:
+                  raise SystemExit(f"sdist is missing runtime files: {missing}")
+              if prefix + "pyproject.toml" not in names:
+                  raise SystemExit("sdist is missing project metadata")
+          PY
+
+          for artifact in "$wheel" "$sdist"; do
+            smoke_root="$(mktemp -d)"
+            uv venv "$smoke_root/venv"
+            "$smoke_root/venv/bin/python" -m ensurepip
+            "$smoke_root/venv/bin/python" -m pip install "$pack_wheel" "$artifact"
+            (
+              cd "$smoke_root"
+              database_url="sqlite+aiosqlite:///$smoke_root/release.db"
+              DATABASE_URL="$database_url" "$smoke_root/venv/bin/woolroom-db" upgrade
+              DATABASE_URL="$database_url" SECRET_KEY=release-smoke-secret ENV=dev \
+                WOOLPACK_WHEEL_NAME="${pack_wheel##*/}" \
+                "$smoke_root/venv/bin/python" - <<'PY'
+          import json
+          import os
+          import sys
+          from importlib.metadata import distribution, version
+          from pathlib import Path
+          from urllib.parse import unquote, urlsplit
+
+          from fastapi.testclient import TestClient
+
+          import woolroom
+
+          direct_url = distribution("woolpack").read_text("direct_url.json")
+          if direct_url is None:
+              raise SystemExit("smoke did not install the local Woolpack wheel")
+          provenance = json.loads(direct_url)["url"]
+          if urlsplit(provenance).scheme != "file" or Path(
+              unquote(urlsplit(provenance).path)
+          ).name != os.environ["WOOLPACK_WHEEL_NAME"]:
+              raise SystemExit("smoke did not install the exact local Woolpack wheel")
+          if version("woolpack") != version("woolroom"):
+              raise SystemExit("installed Woolroom and Woolpack versions diverged")
+          inspection = woolroom.inspect_database(os.environ["DATABASE_URL"])
+          if not inspection.at_head:
+              raise SystemExit("installed migration did not reach packaged head")
+          if woolroom.migration_revisions()[-1] != woolroom.migration_head():
+              raise SystemExit("installed migration graph parity failed")
+          app = woolroom.create_app()
+          with TestClient(app) as client:
+              if client.get("/healthz").status_code != 200:
+                  raise SystemExit("installed app health smoke failed")
+              if set(client.get("/api/packs").json()) != {"dog", "pig"}:
+                  raise SystemExit("installed core profiles are incomplete")
+          if not Path(woolroom.__file__).resolve().is_relative_to(Path(sys.prefix).resolve()):
+              raise SystemExit("smoke imported Woolroom outside the isolated environment")
+          PY
+              DATABASE_URL="$database_url" "$smoke_root/venv/bin/woolroom-db" inspect
+            )
+          done
+      - name: Store Woolroom release artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: woolroom-${{ steps.package.outputs.version }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi-woolroom
+      url: https://pypi.org/p/woolroom
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out the release verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Retrieve Woolroom release artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: woolroom-${{ needs.build.outputs.version }}
+          path: dist/
+      - name: Verify existing PyPI artifacts before resume
+        env:
+          WOOLROOM_VERSION: ${{ needs.build.outputs.version }}
+        run: >-
+          python3 scripts/verify_pypi_release.py
+          --package woolroom --version "$WOOLROOM_VERSION" --dist dist
+      - name: Publish Woolroom release to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
+        with:
+          skip-existing: true
+      - name: Verify complete PyPI release
+        env:
+          WOOLROOM_VERSION: ${{ needs.build.outputs.version }}
+        run: >-
+          python3 scripts/verify_pypi_release.py
+          --package woolroom --version "$WOOLROOM_VERSION" --dist dist
+          --require-complete --wait-seconds 60

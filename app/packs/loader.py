@@ -5,8 +5,8 @@ boot (`app/main.py` lifespan, before any request is served), behind
 fail-closed sanitization gates — the loader-side half of "packs are data,
 never code" (docs/design/woolroom-platform-2026-08-18.md §3.1 + its
 pressure-test outcome; there is no runtime download path, `PACK_PATHS`
-names local dirs only). Default `PACK_PATHS` is empty: the loader is a
-no-op and behavior is byte-identical to today.
+names local dirs only). The packaged dog/pig profiles are always present;
+an empty `PACK_PATHS` means no additional profiles.
 
 Pack layout (all ids come from file stems, all YAML via `yaml.safe_load`):
 
@@ -31,8 +31,10 @@ registered, so a refused pack never leaves half-registered content behind
 
 Every pack loaded here is public distribution content. Private site adapters
 return bounded card projections instead of mutating these registries.
-Per-species art/geometry/palettes land in `PACK_ASSETS`; `LOADED_PACKS`
-records what booted. `client_pack_assets()` shapes `PACK_ASSETS` for
+The packaged dog and pig profiles load first; `PACK_PATHS` only names
+additional local directories. Per-species art/geometry/palettes land in
+`PACK_ASSETS`; `LOADED_PACKS` records what booted.
+`client_pack_assets()` shapes `PACK_ASSETS` for
 `GET /api/packs`, the boot fetch figures.js resolves pack species from.
 """
 
@@ -92,6 +94,8 @@ __all__ = [
     "AROUSAL_BUCKETS",
     "BEHAVIOR_CHANNELS",
     "COAT_COLOR_KEYS",
+    "CORE_PROFILE_IDS",
+    "CORE_PROFILE_ROOT",
     "DEFAULT_ENVIRONMENT",
     "GEOMETRY_KEYS",
     "GEOMETRY_REGION_KEYS",
@@ -128,6 +132,7 @@ __all__ = [
     "SvgSanitizeError",
     "ValidatedPack",
     "client_pack_assets",
+    "load_core_profiles",
     "load_pack",
     "load_packs",
     "pack_environment",
@@ -137,6 +142,8 @@ __all__ = [
 
 LOADED_PACKS: list[PackRecord] = []
 PACK_ASSETS: dict[str, dict[str, Any]] = {}
+CORE_PROFILE_IDS = ("dog", "pig")
+CORE_PROFILE_ROOT = Path(__file__).parent / "profiles"
 
 
 def pack_environment() -> PackEnvironment:
@@ -194,6 +201,28 @@ def load_pack(path: str | Path) -> PackRecord:
 
 def load_packs(paths: Iterable[str]) -> list[PackRecord]:
     return [load_pack(path) for path in paths]
+
+
+def load_core_profiles() -> list[PackRecord]:
+    records: list[PackRecord] = []
+    for species_id in CORE_PROFILE_IDS:
+        path = (CORE_PROFILE_ROOT / species_id).resolve()
+        existing = next((record for record in LOADED_PACKS if record.path == str(path)), None)
+        if existing is None:
+            records.append(load_pack(path))
+            continue
+        complete = (
+            set(existing.species) <= SPECIES_REGISTRY.keys()
+            and set(existing.species) <= PACK_ASSETS.keys()
+            and set(existing.overlays) <= bl.SPECIES_PHRASE_OVERLAYS.keys()
+            and set(existing.quirks) <= QUIRKS.keys()
+        )
+        if not complete or existing.species != [species_id]:
+            raise PackCollisionError(
+                f"core profile {species_id!r} has inconsistent process registry state"
+            )
+        records.append(existing)
+    return records
 
 
 def client_pack_assets() -> dict[str, dict[str, Any]]:

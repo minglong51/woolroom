@@ -2,9 +2,12 @@
 export const uiMethods = {
     _guestToast() {
       // The one line a guest ever hears back from the room.
-      this.status = "guests watch quietly — ask the humans for an invite.";
-      clearTimeout(this._guestToastTimer);
-      this._guestToastTimer = setTimeout(() => (this.status = ""), 3200);
+      const name = this.pet?.name || "the pet";
+      this._woolSay?.(`${name} noticed you.`, 2200);
+      this.guestNoticeFlash = false;
+      clearTimeout(this._guestNoticeTimer);
+      requestAnimationFrame(() => (this.guestNoticeFlash = true));
+      this._guestNoticeTimer = setTimeout(() => (this.guestNoticeFlash = false), 900);
     },
 
     _maybeStartOnboarding() {

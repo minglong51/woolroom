@@ -38,7 +38,7 @@ does not belong in the suite.
 - `scripts/` — operator CLIs and checkout-compatible Woolpack shims:
   `pack_new.py`, `pack_lint.py`, `pack_render.py`,
   `migrate.py`, `eval.py`, `seed_demo_pet.py`, `denylist_check.py`,
-  `docker-entrypoint.sh`.
+  `normalize_sdist.py`, `verify_pypi_release.py`, `docker-entrypoint.sh`.
 - `woolroom/` — the public composition API, overlay contract, and packaged
   Alembic migrations. The migrations are the only thing that touches schema
   in prod.

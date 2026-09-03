@@ -24,6 +24,15 @@ export const apiMethods = {
       } catch (_) { /* packs stays null */ }
     },
 
+    async loadAdoptionDefaults() {
+      try {
+        const r = await fetch("/api/adoption-defaults", { credentials: "same-origin" });
+        if (r.ok) this.adoptionDefaults = await r.json();
+      } catch (_) {}
+      this.pickedCoat = this.adoptionDefaults.primary.coat;
+      this.secondCoat = this.adoptionDefaults.secondary.coat;
+    },
+
     _voiceFmt(template, vars) {
       // Fill a {slot}-style voice template with live data. Split/join, not
       // regex: values may contain anything (names, punctuation).
@@ -34,12 +43,135 @@ export const apiMethods = {
       return out;
     },
 
+    _petCardEntry(pet) {
+      if (!pet?.id) return null;
+      const entry = this.petCardCache?.[pet.id];
+      if (!entry || entry.species !== pet.species || entry.coat !== pet.coat) return null;
+      return entry;
+    },
+
+    petCardFor(pet) {
+      return this._petCardEntry(pet)?.card || null;
+    },
+
+    _cachePetCard(pet, card) {
+      if (!pet?.id) return null;
+      const value = (
+        card
+        && card.species === pet.species
+        && card.coat === pet.coat
+      ) ? card : null;
+      this.petCardCache = {
+        ...(this.petCardCache || {}),
+        [pet.id]: { species: pet.species, coat: pet.coat, card: value },
+      };
+      if (this.pet?.id === pet.id) this.card = value;
+      if (this.pet?.visit?.visitor?.id === pet.id) this._visitorArt = null;
+      return value;
+    },
+
+    _invalidatePetCard(petId) {
+      if (!petId || !this.petCardCache?.[petId]) return;
+      const next = { ...this.petCardCache };
+      delete next[petId];
+      this.petCardCache = next;
+      if (this.pet?.id === petId) this.card = null;
+      if (this.pet?.visit?.visitor?.id === petId) this._visitorArt = null;
+    },
+
+    _resetPetCards() {
+      this.petCardCache = {};
+      this.card = null;
+      this._cardLoads?.clear?.();
+      this._cardCacheGeneration = (this._cardCacheGeneration || 0) + 1;
+      this._visitorArt = null;
+    },
+
+    _cardSubjectForId(petId) {
+      if (this.pet?.id === petId) return this.pet;
+      const visitor = this.pet?.visit?.visitor;
+      if (visitor?.id === petId) return visitor;
+      const ceremony = this.ceremonyPet?.();
+      return ceremony?.id === petId ? ceremony : null;
+    },
+
+    async _refreshPetCard(pet, { force = false } = {}) {
+      if (!pet?.id || !pet.species || !pet.coat) return null;
+      const subject = { id: pet.id, species: pet.species, coat: pet.coat };
+      const generation = this._cardCacheGeneration || 0;
+      if (!force) {
+        const cached = this._petCardEntry(subject);
+        if (cached) return cached.card;
+      } else {
+        this._invalidatePetCard(subject.id);
+      }
+      const loadKey = `${generation}\u0000${subject.id}\u0000${subject.species}\u0000${subject.coat}`;
+      const loads = this._cardLoads || (this._cardLoads = new Set());
+      if (loads.has(loadKey)) return null;
+      loads.add(loadKey);
+      try {
+        const r = await fetch(`/api/card?pet=${encodeURIComponent(subject.id)}`, {
+          credentials: "same-origin",
+        });
+        if (generation !== (this._cardCacheGeneration || 0)) return null;
+        if (!r.ok) {
+          const current = this._cardSubjectForId(subject.id);
+          if (
+            !current
+            || current.species !== subject.species
+            || current.coat !== subject.coat
+          ) return null;
+          this._cachePetCard(current, null);
+          return null;
+        }
+        const data = await r.json();
+        if (generation !== (this._cardCacheGeneration || 0)) return null;
+        const current = this._cardSubjectForId(subject.id);
+        if (
+          !current
+          || current.species !== subject.species
+          || current.coat !== subject.coat
+        ) return null;
+        return this._cachePetCard(current, data.card || null);
+      } catch (_) {
+        return null;
+      } finally {
+        loads.delete(loadKey);
+      }
+    },
+
+    _syncVisiblePetCards() {
+      const ceremony = this.ceremonyPet?.() || null;
+      const visitor = this.pet?.visit?.role === "host" ? this.pet.visit.visitor : null;
+      const seen = new Set();
+      const subjects = [this.pet, ceremony, visitor];
+      for (const subject of subjects) {
+        if (subject?.id) seen.add(subject.id);
+      }
+      for (const petId of Object.keys(this.petCardCache || {})) {
+        if (!seen.has(petId)) this._invalidatePetCard(petId);
+      }
+      seen.clear();
+      for (const subject of subjects) {
+        if (!subject?.id || seen.has(subject.id)) continue;
+        seen.add(subject.id);
+        this._refreshPetCard(subject);
+      }
+    },
+
+    _settleOwnerTransition() {
+      requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "auto" }));
+      if (!this.pet || this.guest) return;
+      void Promise.all([this._woolLoadShelf(), this._woolLoadNotes()]);
+      this._maybeStartOnboarding();
+    },
+
     async loadMe(allowPendingJoin = true) {
       const r = await fetch("/api/me", { credentials: "same-origin" });
       const data = await r.json();
+      this._resetPetCards();
       this.user = data.user;
       this.guest = !!data.guest;
-      this.card = data.card || null;
       this.aliasMap = (data.user && data.user.partner_aliases) || {};
       this.pet = data.pet;
       this.pets = data.pets || [];
@@ -67,6 +199,7 @@ export const apiMethods = {
         this.view = "adopt";
         return;
       }
+      this._cachePetCard(this.pet, data.card || null);
       this._applyPetState(this.pet);
       this.view = "scene";
       // Any path that lands on a pet (init, adopt, invite join) needs the
@@ -99,8 +232,8 @@ export const apiMethods = {
           return;
         }
         const data = await r.json();
-        this.card = data.card || null;
         this.pet = data.pet;
+        this._cachePetCard(this.pet, data.card || null);
         this._applyPetState(this.pet);
         this.view = "scene";
       } catch (_) {
@@ -127,6 +260,7 @@ export const apiMethods = {
           this.status = data.pending_invite_error;
         }
         await this.loadMe();
+        this._settleOwnerTransition();
       } catch (e) {
         this.status = String(e.message || e || "could not start. try again?");
       } finally {
@@ -149,6 +283,7 @@ export const apiMethods = {
         }
         await this.loadMe();
         this.connectWs();
+        this._settleOwnerTransition();
       } catch (e) {
         this.status = String(e.message || e || "adopt failed");
       } finally {
@@ -215,8 +350,9 @@ export const apiMethods = {
         });
         if (r.ok) {
           const data = await r.json();
-          this.card = data.card || null;
           this.pet = { ...this.pet, coat: data.coat };
+          this._invalidatePetCard(this.pet.id);
+          this._cachePetCard(this.pet, data.card || null);
         }
       } catch (_) { /* keeps the old wool; try again from settings */ }
     },
@@ -332,8 +468,8 @@ export const apiMethods = {
       // _applyPetState otherwise diffs the new visit against itself and the
       // playdate beats never fire for the one who followed through the door.
       const prevVisit = this.pet?.visit || null;
-      this.card = newCard || null;
       this.pet = newPet;
+      this._cachePetCard(newPet, newCard || null);
       this.activePetId = newPet.id;
       this.woolLine = "";
       this.lastResponse = null;

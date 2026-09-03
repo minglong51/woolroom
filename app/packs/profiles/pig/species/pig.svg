@@ -1,0 +1,53 @@
+<g>
+  <ellipse class="dog-contact" cx="200" cy="452" rx="62" ry="8" fill="rgba(90,72,54,.28)"/>
+      <g class="tailg">
+        <path class="point" fill="#c87987" d="M250 371c14-12 30-5 27 8c-2 9-14 10-18 3c-3-5 3-9 7-6c-1-5-8-5-13 1Z"/>
+      </g>
+      <ellipse class="coat dog-body" cx="200" cy="397" rx="66" ry="51" fill="#e9aab4"/>
+      <ellipse class="cream dog-chest" cx="200" cy="417" rx="37" ry="25" fill="#f7d7da"/>
+      <ellipse class="cream" cx="166" cy="442" rx="13" ry="8" fill="#f7d7da"/>
+      <ellipse class="cream" cx="234" cy="442" rx="13" ry="8" fill="#f7d7da"/>
+      <g class="paw-dream">
+        <ellipse class="cream" cx="166" cy="445" rx="10" ry="5" fill="#f7d7da"/>
+      </g>
+      <g class="headg">
+        <g class="earg">
+          <path class="point" fill="#c87987" d="M158 337c-13-18-8-35 10-34c13 1 19 14 17 29Z"/>
+          <path class="point" fill="#c87987" d="M242 337c13-18 8-35-10-34c-13 1-19 14-17 29Z"/>
+        </g>
+        <ellipse class="coat" cx="200" cy="354" rx="51" ry="45" fill="#e9aab4"/>
+        <g id="dog-eyes">
+          <g class="eyes-open">
+            <circle cx="182" cy="350" r="3.5" fill="#382d2a"/>
+            <circle cx="218" cy="350" r="3.5" fill="#382d2a"/>
+          </g>
+          <g class="eyes-happy">
+            <path d="M176 351q6 5 12 0M212 351q6 5 12 0" stroke="#382d2a" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+          </g>
+          <g class="eyes-side">
+            <circle cx="179" cy="350" r="3.5" fill="#382d2a"/>
+            <circle cx="215" cy="350" r="3.5" fill="#382d2a"/>
+          </g>
+          <g class="nap-eyes">
+            <path d="M176 352q6 4 12 0M212 352q6 4 12 0" stroke="#382d2a" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+          </g>
+          <g class="one-eye-eyes">
+            <path d="M176 352q6 4 12 0" stroke="#382d2a" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+            <circle cx="218" cy="350" r="3.5" fill="#382d2a"/>
+          </g>
+        </g>
+        <ellipse class="cream" cx="200" cy="372" rx="23" ry="16" fill="#f7d7da"/>
+        <ellipse class="point" cx="200" cy="373" rx="13" ry="8" fill="#c87987"/>
+        <circle cx="195" cy="373" r="1.8" fill="#382d2a"/>
+        <circle cx="205" cy="373" r="1.8" fill="#382d2a"/>
+      </g>
+      <g class="brushstreak" aria-hidden="true">
+        <path d="M154 377q-9 12-8 25"/>
+        <path d="M164 370q-10 14-9 28"/>
+        <path d="M174 366q-9 14-8 28"/>
+      </g>
+  <g class="touchfibers" aria-hidden="true">
+    <path d="M147 362l-11-5M145 379l-12 1M253 362l11-5M255 379l12 1M165 432l-8 9M235 432l8 9"/>
+  </g>
+  <title>a round wool pig, standing calmly</title>
+</g>

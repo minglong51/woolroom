@@ -1,1 +1,3 @@
-Generic single-database configuration with an async dbapi.
+Packaged single-database configuration. The environment honors an explicitly
+supplied URL or synchronous SQLAlchemy connection; application settings remain
+the fallback for checkout and container commands.

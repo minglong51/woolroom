@@ -85,6 +85,28 @@ class _CoatCardProvider(_RecordingProvider):
         return BoundPetCard(pet_id=subject.pet_id, card=_card(coat=subject.coat))
 
 
+class _SubjectCardProvider(_RecordingProvider):
+    async def owner_card(self, subject: OwnerCardSubject) -> BoundPetCard:
+        self.owner_calls.append(subject)
+        return BoundPetCard(
+            pet_id=subject.pet_id,
+            card=_card(
+                species=subject.species,
+                coat=subject.coat,
+            ),
+        )
+
+    async def guest_card(self, subject: GuestCardSubject) -> BoundPetCard:
+        self.guest_calls.append(subject)
+        return BoundPetCard(
+            pet_id=subject.pet_id,
+            card=_card(
+                species=subject.species,
+                coat=subject.coat,
+            ),
+        )
+
+
 class _SameDatabaseProvider(_CoatCardProvider):
     def __init__(self, db_path: Path) -> None:
         super().__init__()
@@ -115,10 +137,15 @@ class _WrongPetProvider(_RecordingProvider):
         return BoundPetCard(pet_id="another_pet", card=_card(coat=subject.coat))
 
 
-def _card(*, species: str = "cat", coat: str = "ash") -> dict[str, object]:
+def _card(
+    *,
+    card_id: str = SENTINEL,
+    species: str = "cat",
+    coat: str = "ash",
+) -> dict[str, object]:
     return {
         "schema_version": 1,
-        "card_id": SENTINEL,
+        "card_id": card_id,
         "species": species,
         "coat": coat,
         "pronoun": "it",
@@ -481,6 +508,128 @@ def test_card_refresh_is_scoped_to_an_owned_or_guest_visible_pet(
     ]
 
 
+def test_pending_ceremony_participant_can_fetch_only_the_card(
+    tmp_path: Path, monkeypatch
+) -> None:
+    provider = _SubjectCardProvider()
+    app = _load_app(tmp_path, monkeypatch, provider)
+
+    with TestClient(app) as owner, TestClient(app) as partner:
+        _start_and_adopt(owner)
+        invite = owner.post("/api/invite")
+        assert invite.status_code == 200
+        joined = partner.get(urlparse(invite.json()["url"]).path, follow_redirects=False)
+        assert joined.status_code == 303
+        started = partner.post("/api/start", json={"display_name": "Partner"})
+        assert started.status_code == 200
+        adopted = owner.post(
+            "/api/adopt-second",
+            json={"name": "Nova", "quirk": "content_sigher", "coat": "tuxedo"},
+        )
+        assert adopted.status_code == 200
+        pending = adopted.json()["pet"]
+
+        provider.owner_calls.clear()
+        card = partner.get(f"/api/card?pet={pending['id']}")
+        room = partner.post("/api/room", json={"pet_id": pending["id"]})
+        action = partner.post(
+            f"/api/action?pet={pending['id']}",
+            json={"type": "greet"},
+        )
+        unrelated = partner.get("/api/card?pet=unknown_pet")
+
+    assert card.status_code == 200
+    assert card.headers["Cache-Control"] == "private, no-store"
+    assert card.json()["card"]["card_id"] == SENTINEL
+    assert provider.owner_calls == [
+        OwnerCardSubject(
+            user_id=started.json()["user_id"],
+            pet_id=pending["id"],
+            species="cat",
+            coat="tuxedo",
+        )
+    ]
+    assert room.status_code == 403
+    assert action.status_code == 403
+    assert unrelated.status_code == 403
+
+
+def test_guest_can_fetch_only_pinned_and_currently_visible_visitor_cards(
+    tmp_path: Path, monkeypatch
+) -> None:
+    provider = _SubjectCardProvider()
+    app = _load_app(tmp_path, monkeypatch, provider)
+
+    with TestClient(app) as owner, TestClient(app) as partner, TestClient(app) as guest:
+        _, pinned = _start_and_adopt(owner)
+        invite = owner.post("/api/invite")
+        assert invite.status_code == 200
+        joined = partner.get(urlparse(invite.json()["url"]).path, follow_redirects=False)
+        assert joined.status_code == 303
+        assert partner.post(
+            "/api/start", json={"display_name": "Partner"}
+        ).status_code == 200
+        adopted = owner.post(
+            "/api/adopt-second",
+            json={"name": "Nova", "quirk": "content_sigher", "coat": "ash"},
+        )
+        assert adopted.status_code == 200
+        visitor = adopted.json()["pet"]
+        assert partner.post(
+            "/api/second-quirk",
+            json={"pet_id": visitor["id"], "quirk": "zoomie_initiator"},
+        ).status_code == 200
+        started = owner.post("/api/visit", json={"pet_id": visitor["id"]})
+        assert started.status_code == 200
+        assert started.json()["visit"]["host_pet_id"] == pinned["id"]
+
+        _grant_guest(guest)
+        scene = guest.get("/api/guest/scene")
+        pinned_card = guest.get(f"/api/card?pet={pinned['id']}")
+        visitor_card = guest.get(f"/api/card?pet={visitor['id']}")
+        hidden = guest.get("/api/card?pet=unknown_pet")
+        packs = guest.get("/api/packs")
+        voice = guest.get("/api/voice")
+        assert owner.post(
+            "/api/visit/end", json={"pet_id": pinned["id"]}
+        ).status_code == 200
+        after_visit = guest.get(f"/api/card?pet={visitor['id']}")
+        assert owner.post(
+            "/api/visit", json={"pet_id": pinned["id"]}
+        ).status_code == 200
+        away_side = guest.get(f"/api/card?pet={visitor['id']}")
+        assert owner.post(
+            "/api/visit/end", json={"pet_id": pinned["id"]}
+        ).status_code == 200
+
+    assert scene.status_code == 200
+    visit = scene.json()["pet"]["visit"]
+    assert set(visit) == {"id", "role", "visitor"}
+    assert visit["role"] == "host"
+    assert set(visit["visitor"]) == {
+        "id",
+        "name",
+        "species",
+        "coat",
+        "animation_state",
+        "render_scale",
+    }
+    assert visit["visitor"]["id"] == visitor["id"]
+    assert pinned_card.status_code == 200
+    assert visitor_card.status_code == 200
+    assert visitor_card.json()["card"]["card_id"] == SENTINEL
+    assert hidden.status_code == 404
+    assert after_visit.status_code == 404
+    assert away_side.status_code == 404
+    assert SENTINEL not in json.dumps(packs.json())
+    assert SENTINEL not in json.dumps(voice.json())
+    assert [subject.pet_id for subject in provider.guest_calls] == [
+        pinned["id"],
+        pinned["id"],
+        visitor["id"],
+    ]
+
+
 def test_outer_guest_access_uses_the_guest_projection_even_with_an_owner_cookie(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -621,6 +770,176 @@ def test_client_resolves_a_matching_card_without_mutating_public_packs(tmp_path:
     assert payload["zone"] == "ear"
 
 
+def test_client_caches_and_renders_private_cards_only_for_persisted_visible_pets(
+    tmp_path: Path,
+) -> None:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is required for the browser card contract")
+    repo_root = Path(__file__).parents[1]
+    api_uri = (repo_root / "app/static/js/api.js").as_uri()
+    figures_uri = (repo_root / "app/static/js/figures.js").as_uri()
+    script = f"""
+      import {{ apiMethods }} from {json.dumps(api_uri)};
+      import {{ figureMethods }} from {json.dumps(figures_uri)};
+
+      const makeCard = (id, marker, body) => ({{
+        card_id: `${{marker}}_card`,
+        species: "dog",
+        coat: "red",
+        svg: `<g id="${{marker}}"><g id="dog-eyes"></g></g>`,
+        palette: {{ body, belly: "#aabbcc", point: "#ddeeff" }},
+        geometry: {{}},
+      }});
+      const active = {{ id: "active_pet", species: "dog", coat: "red" }};
+      const ceremony = {{ id: "ceremony_pet", species: "dog", coat: "red", pending: true }};
+      const visitor = {{ id: "visitor_pet", species: "dog", coat: "red" }};
+      const cards = {{
+        active_pet: makeCard("active_pet", "private_active", "#111111"),
+        ceremony_pet: makeCard("ceremony_pet", "private_ceremony", "#222222"),
+        visitor_pet: makeCard("visitor_pet", "private_visitor", "#333333"),
+      }};
+      const requests = [];
+      globalThis.fetch = async (url) => {{
+        requests.push(url);
+        const id = new URL(url, "https://woolroom.test").searchParams.get("pet");
+        return {{ ok: true, json: async () => ({{ card: cards[id] }}) }};
+      }};
+      const publicPacks = {{
+        dog: {{
+          svg: '<g id="public_dog"><g id="dog-eyes"></g></g>',
+          palettes: {{ red: {{ body: "#999999", belly: "#eeeeee", point: "#777777" }} }},
+          geometry: {{}},
+        }},
+      }};
+      const publicBefore = JSON.stringify(publicPacks);
+      const context = {{
+        pet: {{
+          ...active,
+          visit: {{ id: "visit_1", role: "host", visitor }},
+        }},
+        pets: [active, ceremony],
+        guest: false,
+        card: cards.active_pet,
+        petCardCache: {{
+          active_pet: {{ species: "dog", coat: "red", card: cards.active_pet }},
+        }},
+        _cardLoads: new Set(),
+        _visitorArt: null,
+        packs: publicPacks,
+        ceremonyPet() {{ return this.pets.find((pet) => pet.pending) || null; }},
+        ...apiMethods,
+        ...figureMethods,
+      }};
+      context._syncVisiblePetCards();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      const rendered = {{
+        active: context.petFigureSvg(),
+        ceremony: context.ceremonyPreviewSvg(),
+        ceremonyStyle: context.ceremonyPreviewCoatStyle(),
+        visitor: context.visitorSvg(),
+        initialAdoption: context.petPreviewSvg("dog"),
+      }};
+      context.pet = {{ ...active, visit: null }};
+      context._syncVisiblePetCards();
+      console.log(JSON.stringify({{
+        requests,
+        cacheKeys: Object.keys(context.petCardCache).sort(),
+        rendered,
+        publicUnchanged: JSON.stringify(publicPacks) === publicBefore,
+      }}));
+    """
+    result = subprocess.run(
+        [node, "--input-type=module", "-e", script],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["requests"] == [
+        "/api/card?pet=ceremony_pet",
+        "/api/card?pet=visitor_pet",
+    ]
+    assert payload["cacheKeys"] == ["active_pet", "ceremony_pet"]
+    assert "private_active" in payload["rendered"]["active"]
+    assert "private_ceremony" in payload["rendered"]["ceremony"]
+    assert "#222222" in payload["rendered"]["ceremonyStyle"]
+    assert "private_visitor" in payload["rendered"]["visitor"]
+    assert "pet-eyes-visitor" in payload["rendered"]["visitor"]
+    assert "public_dog" in payload["rendered"]["initialAdoption"]
+    assert "private_" not in payload["rendered"]["initialAdoption"]
+    assert payload["publicUnchanged"] is True
+
+
+def test_client_discards_a_card_response_from_an_earlier_auth_generation() -> None:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is required for the browser card contract")
+    repo_root = Path(__file__).parents[1]
+    api_uri = (repo_root / "app/static/js/api.js").as_uri()
+    script = f"""
+      import {{ apiMethods }} from {json.dumps(api_uri)};
+      const pet = {{ id: "same_pet", species: "cat", coat: "ash" }};
+      const oldCard = {{ card_id: "old_owner", species: "cat", coat: "ash" }};
+      const newCard = {{ card_id: "new_owner", species: "cat", coat: "ash" }};
+      let releaseOld;
+      let fetchCount = 0;
+      globalThis.fetch = async () => {{
+        fetchCount += 1;
+        if (fetchCount === 1) {{
+          return await new Promise((resolve) => {{
+            releaseOld = () => resolve({{
+              ok: true,
+              json: async () => ({{ card: oldCard }}),
+            }});
+          }});
+        }}
+        return {{ ok: true, json: async () => ({{ card: newCard }}) }};
+      }};
+      const context = {{
+        pet,
+        pets: [],
+        guest: false,
+        card: null,
+        petCardCache: {{}},
+        _cardLoads: new Set(),
+        _cardCacheGeneration: 0,
+        ...apiMethods,
+      }};
+      const oldLoad = context._refreshPetCard(pet);
+      context._resetPetCards();
+      const newLoad = context._refreshPetCard(pet);
+      await newLoad;
+      releaseOld();
+      await oldLoad;
+      console.log(JSON.stringify({{
+        card: context.card,
+        cacheCard: context.petCardCache.same_pet.card,
+        generation: context._cardCacheGeneration,
+        pendingLoads: context._cardLoads.size,
+        fetchCount,
+      }}));
+    """
+    result = subprocess.run(
+        [node, "--input-type=module", "-e", script],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == {
+        "card": {"card_id": "new_owner", "species": "cat", "coat": "ash"},
+        "cacheCard": {"card_id": "new_owner", "species": "cat", "coat": "ash"},
+        "generation": 1,
+        "pendingLoads": 0,
+        "fetchCount": 2,
+    }
+
+
 def test_client_refreshes_a_pet_scoped_card_when_realtime_changes_its_subject(
     tmp_path: Path,
 ) -> None:
@@ -631,35 +950,57 @@ def test_client_refreshes_a_pet_scoped_card_when_realtime_changes_its_subject(
     module = tmp_path / "ws.mjs"
     module.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
     module_uri = module.as_uri()
+    api_uri = (Path(__file__).parents[1] / "app/static/js/api.js").as_uri()
     script = f"""
       import {{ wsMethods }} from {json.dumps(module_uri)};
+      import {{ apiMethods }} from {json.dumps(api_uri)};
       const fetched = [];
       globalThis.fetch = async (url, options) => {{
         fetched.push([url, options]);
-        return {{ ok: true, json: async () => ({{ card: {{ card_id: "new" }} }}) }};
+        const coat = url.includes("pet_b") ? "tuxedo" : "ash";
+        return {{
+          ok: true,
+          json: async () => ({{ card: {{ card_id: "new", species: "cat", coat }} }}),
+        }};
       }};
       const refreshContext = {{
         pet: {{ id: "pet_a", species: "cat", coat: "ash" }},
+        pets: [],
+        petCardCache: {{}},
         card: null,
+        _cardLoads: new Set(),
+        ...apiMethods,
       }};
       await wsMethods._refreshActiveCard.call(refreshContext, "pet_a", "cat", "ash");
 
-      const refreshed = [];
       const eventContext = {{
-        pet: {{ id: "pet_a", species: "cat", coat: "ash", participant_count: 2 }},
-        card: {{ card_id: "old" }},
+        pet: {{ id: "pet_b", species: "cat", coat: "ash", participant_count: 2 }},
+        pets: [],
+        petCardCache: {{
+          pet_b: {{
+            species: "cat",
+            coat: "ash",
+            card: {{ card_id: "old", species: "cat", coat: "ash" }},
+          }},
+        }},
+        card: {{ card_id: "old", species: "cat", coat: "ash" }},
+        _cardLoads: new Set(),
         guest: true,
-        _applyPetState(pet) {{ this.pet = {{ ...this.pet, ...pet }}; }},
-        _refreshActiveCard(...subject) {{ refreshed.push(subject); }},
+        ...apiMethods,
+        _applyPetState(pet) {{
+          this.pet = {{ ...this.pet, ...pet }};
+          this._syncVisiblePetCards();
+        }},
       }};
       wsMethods._onWs.call(eventContext, {{
         type: "pet_state",
-        pet: {{ id: "pet_a", species: "cat", coat: "tuxedo", participant_count: 2 }},
+        pet: {{ id: "pet_b", species: "cat", coat: "tuxedo", participant_count: 2 }},
       }});
+      await new Promise((resolve) => setTimeout(resolve, 0));
       let staleApplied = false;
       const staleContext = {{
-        pet: {{ id: "pet_b", species: "cat", coat: "ash" }},
-        card: {{ card_id: "pet_b" }},
+        pet: {{ id: "pet_c", species: "cat", coat: "ash" }},
+        card: {{ card_id: "pet_c" }},
         guest: false,
         _applyPetState() {{ staleApplied = true; }},
       }};
@@ -670,7 +1011,8 @@ def test_client_refreshes_a_pet_scoped_card_when_realtime_changes_its_subject(
       console.log(JSON.stringify({{
         fetched,
         card: refreshContext.card,
-        refreshed,
+        eventCard: eventContext.card,
+        eventEntry: eventContext.petCardCache.pet_b,
         staleApplied,
         stalePet: staleContext.pet.id,
       }}));
@@ -685,12 +1027,18 @@ def test_client_refreshes_a_pet_scoped_card_when_realtime_changes_its_subject(
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert payload["fetched"] == [
-        ["/api/card?pet=pet_a", {"credentials": "same-origin"}]
+        ["/api/card?pet=pet_a", {"credentials": "same-origin"}],
+        ["/api/card?pet=pet_b", {"credentials": "same-origin"}],
     ]
-    assert payload["card"] == {"card_id": "new"}
-    assert payload["refreshed"] == [["pet_a", "cat", "tuxedo"]]
+    assert payload["card"] == {"card_id": "new", "species": "cat", "coat": "ash"}
+    assert payload["eventCard"] == {
+        "card_id": "new",
+        "species": "cat",
+        "coat": "tuxedo",
+    }
+    assert payload["eventEntry"]["coat"] == "tuxedo"
     assert payload["staleApplied"] is False
-    assert payload["stalePet"] == "pet_b"
+    assert payload["stalePet"] == "pet_c"
 
 
 def test_client_atomically_swaps_cards_for_coat_and_room_changes(tmp_path: Path) -> None:
@@ -703,25 +1051,32 @@ def test_client_atomically_swaps_cards_for_coat_and_room_changes(tmp_path: Path)
     module_uri = module.as_uri()
     script = f"""
       import {{ apiMethods }} from {json.dumps(module_uri)};
-      const coatCard = {{ card_id: "coat_card" }};
+      const coatCard = {{ card_id: "coat_card", species: "cat", coat: "tuxedo" }};
       globalThis.fetch = async () => ({{
         ok: true,
         json: async () => ({{ coat: "tuxedo", card: coatCard }}),
       }});
       const coatContext = {{
         guest: false,
-        pet: {{ id: "pet_a", coat: "ash" }},
+        pet: {{ id: "pet_a", species: "cat", coat: "ash" }},
+        pets: [],
+        petCardCache: {{}},
+        _cardLoads: new Set(),
         card: {{ card_id: "old" }},
-        _petQs: apiMethods._petQs,
+        ...apiMethods,
       }};
       await apiMethods.setCoat.call(coatContext, "tuxedo");
 
-      const roomCard = {{ card_id: "room_card" }};
+      const roomCard = {{ card_id: "room_card", species: "cat", coat: "tuxedo" }};
       const order = [];
       const roomContext = {{
-        pet: {{ id: "pet_a", visit: null }},
+        pet: {{ id: "pet_a", species: "cat", coat: "ash", visit: null }},
+        pets: [],
+        petCardCache: {{}},
+        _cardLoads: new Set(),
         card: {{ card_id: "old" }},
         woolNotes: [], woolHearts: [], woolShelf: [], woolPatches: [], localRoomNotes: [],
+        ...apiMethods,
         _woolRoomSwitched() {{}},
         _applyPetState() {{ order.push(this.card.card_id); }},
         connectWs() {{}},
@@ -729,7 +1084,7 @@ def test_client_atomically_swaps_cards_for_coat_and_room_changes(tmp_path: Path)
       globalThis.localStorage = {{ setItem() {{}} }};
       apiMethods._applyRoomSwitch.call(
         roomContext,
-        {{ id: "pet_b", visit: null }},
+        {{ id: "pet_b", species: "cat", coat: "tuxedo", visit: null }},
         roomCard,
       );
       console.log(JSON.stringify({{

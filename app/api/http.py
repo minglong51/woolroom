@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import html as _html
 import logging
-from typing import Annotated, Literal
+from typing import Annotated
 
 from fastapi import (
     APIRouter,
@@ -17,7 +17,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import HTMLResponse, RedirectResponse
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import select as _sa_select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -105,17 +105,22 @@ class StartIn(BaseModel):
     display_name: str = Field(default="friend", max_length=64)
 
 
-# The three cat coats, rendered as undyed-wool palettes. "marmalade" is the
-# default the art is drawn in; the rest are identity, not dress-up.
-Coat = Literal["tuxedo", "marmalade", "ash"]
+def _coat_is_registered(coat: str) -> str:
+    if not any(coat in entry["coats"] for entry in SPECIES_REGISTRY.values()):
+        raise ValueError(f"unknown coat: {coat}")
+    return coat
 
 
 class AdoptIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str = Field(min_length=1, max_length=64)
     quirks: list[str] = Field(
         min_length=settings.quirk_pick_count, max_length=settings.quirk_pick_count
     )
-    coat: Coat = "marmalade"
+    coat: str = Field(default="marmalade", min_length=1, max_length=16)
+
+    _known_coat = field_validator("coat")(_coat_is_registered)
 
 
 
@@ -243,6 +248,11 @@ async def list_quirks() -> dict:
             for qid, q in QUIRKS.items()
         ]
     }
+
+
+@router.get("/api/adoption-defaults")
+async def adoption_defaults(request: Request) -> dict[str, dict[str, str]]:
+    return request.app.state.adoption_defaults.client_payload()
 
 
 # ────────── session / identity ──────────
@@ -454,14 +464,25 @@ async def active_card(
         )
     )
     if guest:
-        pet = await resolve_guest_pet(session)
-        if pet is None or pet.id != pet_id:
+        pinned_pet = await resolve_guest_pet(session)
+        pet = None
+        if pinned_pet is not None and pinned_pet.id == pet_id:
+            pet = pinned_pet
+        elif pinned_pet is not None:
+            visit = visits.visit_for(pinned_pet.id)
+            if (
+                visit is not None
+                and visit["role"] == "host"
+                and visit["visitor_pet_id"] == pet_id
+            ):
+                pet = await repo.get_pet(session, pet_id)
+        if pet is None:
             raise HTTPException(status_code=404, detail="guest card is not available")
         return {"card": await _guest_card(request, pet)}
 
     if user is not None:
         participant = await repo.get_participant(session, pet_id, user.id)
-        if participant is None or participant.confirmed_adoption_at is None:
+        if participant is None:
             raise HTTPException(status_code=403, detail="not your room")
         pet = await repo.get_pet(session, pet_id)
         if pet is None:
@@ -528,7 +549,7 @@ async def guest_scene(
     if pet is None:
         raise HTTPException(
             status_code=404,
-            detail="guest demo cat is not available — seed it (scripts/seed_demo_pet.py) and pin GUEST_PET_ID",
+            detail="guest demo pet is not available — seed it (scripts/seed_demo_pet.py) and pin GUEST_PET_ID",
         )
     response.headers["Cache-Control"] = "private, no-store"
     return {
@@ -543,6 +564,7 @@ async def guest_scene(
 @router.post("/api/adopt")
 async def adopt(
     body: AdoptIn,
+    request: Request,
     user: User = Depends(current_user),
     session: AsyncSession = Depends(db),
 ) -> dict:
@@ -556,7 +578,20 @@ async def adopt(
         quirks = validate_quirks(body.quirks)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    pet = await repo.create_pet(session, body.name, quirks, coat=body.coat)
+    defaults = request.app.state.adoption_defaults
+    coat = body.coat if "coat" in body.model_fields_set else defaults.primary_coat
+    if coat not in coats_for(defaults.primary_species):
+        raise HTTPException(
+            status_code=422,
+            detail=f"not a {defaults.primary_species} wool: {coat}",
+        )
+    pet = await repo.create_pet(
+        session,
+        body.name,
+        quirks,
+        coat=coat,
+        species=defaults.primary_species,
+    )
     await repo.add_participant(session, pet.id, user.id)
     await buffer.add_event(session, pet.id, "adoption", user_id=user.id)
     # Seed core facts so the pet can speak about its own origin from turn one.
@@ -590,7 +625,7 @@ async def switch_room(
     if participant is None:
         raise HTTPException(status_code=403, detail="not your room")
     if participant.confirmed_adoption_at is None:
-        raise HTTPException(status_code=403, detail="meet him first — pick his second habit")
+        raise HTTPException(status_code=403, detail="meet them first — pick their second habit")
     pet = await repo.get_pet(session, body.pet_id)
     if pet is None:
         raise HTTPException(status_code=404, detail="no such room")
@@ -610,8 +645,7 @@ class AdoptSecondIn(BaseModel):
     # ONE quirk here; the partner picks the second at the ceremony. That's
     # the point of the ritual — it arrives half-decided and gets completed.
     quirk: str = Field(min_length=1, max_length=64)
-    # The demo household's second room is cat-shaped too; the species
-    # registry owns which species (and which of their coats) are adoptable.
+    # Kept for old clients; deployment configuration owns the persisted species.
     species: str = "cat"
     coat: str = "marmalade"
 
@@ -624,7 +658,11 @@ class AdoptSecondIn(BaseModel):
 
     @model_validator(mode="after")
     def _coat_belongs_to_species(self) -> AdoptSecondIn:
-        if self.coat not in coats_for(self.species):
+        if "coat" not in self.model_fields_set:
+            return self
+        if "species" not in self.model_fields_set:
+            _coat_is_registered(self.coat)
+        elif self.coat not in coats_for(self.species):
             raise ValueError(f"not a {self.species} wool: {self.coat}")
         return self
 
@@ -632,10 +670,11 @@ class AdoptSecondIn(BaseModel):
 @router.post("/api/adopt-second")
 async def adopt_second(
     body: AdoptSecondIn,
+    request: Request,
     user: User = Depends(current_user),
     session: AsyncSession = Depends(db),
 ) -> dict:
-    """Bring the second cat home. Gates: the household exists (a founding pet
+    """Bring the second pet home. Gates: the household exists (a founding pet
     with its two confirmed humans) and has no second room yet. The caller
     picks its name + first quirk; the partner wakes to a card asking for the
     second."""
@@ -661,14 +700,26 @@ async def adopt_second(
     if len(partner_ids) != settings.household_size - 1:
         raise HTTPException(
             status_code=409,
-            detail="the second cat comes home to a shared room — invite your partner first",
+            detail="the second pet comes home to a shared room — invite your partner first",
+        )
+    defaults = request.app.state.adoption_defaults
+    if "species" in body.model_fields_set and body.species != defaults.secondary_species:
+        raise HTTPException(
+            status_code=422,
+            detail="second adoption species is fixed by this Woolroom deployment",
+        )
+    coat = body.coat if "coat" in body.model_fields_set else defaults.secondary_coat
+    if coat not in coats_for(defaults.secondary_species):
+        raise HTTPException(
+            status_code=422,
+            detail=f"not a {defaults.secondary_species} wool: {coat}",
         )
     pet = await repo.create_pet(
         session,
         body.name,
         [body.quirk],
-        coat=body.coat,
-        species=body.species,
+        coat=coat,
+        species=defaults.secondary_species,
         household_id=founding.household_id,
     )
     await repo.add_participant(session, pet.id, user.id, confirmed=True)
@@ -710,8 +761,8 @@ async def second_quirk(
     user: User = Depends(current_user),
     session: AsyncSession = Depends(db),
 ) -> dict:
-    """The ceremony's second half: the partner picks the second cat's other
-    habit, which confirms their adoption. Until this fires, the second cat's
+    """The ceremony's second half: the partner picks the second pet's other
+    habit, which confirms their adoption. Until this fires, the second pet's
     room is closed to them (current_pet 403s) and their /api/me marks it
     pending."""
     participant = await repo.get_participant(session, body.pet_id, user.id)
@@ -725,7 +776,7 @@ async def second_quirk(
     if pet is None:
         raise HTTPException(status_code=404, detail="no such room")
     if body.quirk in (pet.quirks or []):
-        raise HTTPException(status_code=409, detail="he already has that one")
+        raise HTTPException(status_code=409, detail="they already have that one")
     pet.quirks = [*(pet.quirks or []), body.quirk]
     participant.confirmed_adoption_at = utc_now()
     await buffer.add_event(
@@ -743,7 +794,7 @@ async def second_quirk(
     await session.commit()
     fragment = (
         f"{pet.name} is all the way home now — "
-        f"{user.display_name} picked his second habit."
+        f"{user.display_name} picked their second habit."
     )
     for room in await repo.get_household_pets(session, pet.household_id):
         await channel.broadcast(room.id, {

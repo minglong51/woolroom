@@ -39,7 +39,7 @@ from app.runtime.scene_fx import (
 )
 from app.storage import repo
 from app.storage.models import Pet, User
-from app.time import local_now, utc_now
+from app.time import local_now, to_local, utc_now
 
 log = logging.getLogger(__name__)
 
@@ -125,6 +125,16 @@ async def perform_action(
         event_meta = {**(event_meta or {}), "spot": body.spot}
     if body.origin_id:
         event_meta = {**(event_meta or {}), "origin_id": body.origin_id}
+    previous_action = await buffer.latest_event_of_types(
+        session,
+        pet.id,
+        ACTION_NUDGE,
+    )
+    can_ignore = (
+        previous_action is not None
+        and to_local(previous_action.created_at).date() == local_now().date()
+        and previous_action.meta.get("ignored") is False
+    )
     event = await buffer.add_event(
         session,
         pet.id,
@@ -176,7 +186,7 @@ async def perform_action(
         for key, value in (quirk_effect.fact_updates or {}).items():
             await core_memory.set_fact(session, pet.id, key, value)
     else:
-        ignored = decide_ignore(pet)
+        ignored = can_ignore and decide_ignore(pet)
         if ignored:
             modifiers.append({"mode": "ignored", "duration_ms": 1800})
         elif body.type == "pet" and body.spot and body.spot != "body":
@@ -196,6 +206,7 @@ async def perform_action(
                 or mood_fx.get("mode") != default_fx.get("mode")
             ):
                 modifiers.append(mood_fx)
+    event.meta = {**event.meta, "ignored": ignored}
     default_fx = default_action_scene_fx(body.type)
     if ignored:
         legacy_fx = (

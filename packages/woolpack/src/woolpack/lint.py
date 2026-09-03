@@ -12,7 +12,8 @@ quality contract that the runtime gates deliberately do not:
   ERROR, not a suggestion), and the `.coat`/`.cream`/`.point` palette
   hooks the inline `--dog-*` coat vars land on. The ambient layers
   (`.brushstreak`/`.touchfibers`/`.paw-dream`/`.dog-contact`) are
-  nice-to-have: missing is a WARN.
+  nice-to-have: missing is a WARN. `.breath` and `.squishg` are forbidden:
+  the host injects those animation wrappers around every figure.
 - sanitizer drops — the elements/attributes `sanitize_svg` WOULD strip
   from the raw figure, named non-destructively, so an author is not
   confused when the loaded figure is thinner than the file they drew.
@@ -65,6 +66,7 @@ RIG_STRUCTURE = {"tailg", "headg", "earg"}
 RIG_EYE_STATES = {"eyes-open", "eyes-happy", "eyes-side", "nap-eyes", "one-eye-eyes"}
 RIG_PALETTE = {"coat", "cream", "point"}
 RIG_EXTRAS = {"brushstreak", "touchfibers", "paw-dream", "dog-contact"}
+HOST_OWNED_WRAPPERS = {"breath", "squishg"}
 EYE_SINGLETON = "dog-eyes"
 
 # The scene frame (wool.js pointer math) and the room's pettable rect
@@ -152,6 +154,22 @@ def _sanitize_drops(text: str) -> tuple[list[str], list[str]]:
 
 def _check_rig(report: LintReport, species_id: str, figure: str) -> None:
     classes, ids = _figure_handles(figure)
+
+    host_wrappers = sorted(HOST_OWNED_WRAPPERS & classes)
+    if host_wrappers:
+        report.add(
+            f"rig wrapper ownership [{species_id}]",
+            ERROR,
+            f"contains {' '.join(f'.{name}' for name in host_wrappers)} — the host injects "
+            ".breath and .squishg around the figure; declaring either inside the fragment "
+            "double-applies its animation",
+        )
+    else:
+        report.add(
+            f"rig wrapper ownership [{species_id}]",
+            PASS,
+            ".breath .squishg absent — the host owns both animation wrappers",
+        )
 
     missing = sorted(RIG_STRUCTURE - classes)
     singleton = ids.count(EYE_SINGLETON)
@@ -374,7 +392,7 @@ def _check_overlay(
             f"overlay sparsity [{species_id}]",
             WARN,
             "pins no body cells — the ambient fallback voice (the lines heard most) is "
-            "entirely the base dog tables",
+            "entirely the builtin base tables",
         )
     else:
         report.add(

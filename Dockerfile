@@ -11,10 +11,12 @@ WORKDIR /app
 
 COPY pyproject.toml README.md LICENSE ./
 COPY packages/woolpack/pyproject.toml ./packages/woolpack/
+COPY packages/woolpack/LICENSE packages/woolpack/LICENSE-CC0 ./packages/woolpack/
 COPY packages/woolpack/src ./packages/woolpack/src
 RUN pip install --upgrade pip && pip install -e ./packages/woolpack -e .
 
-ADD https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-linux-amd64.deb /tmp/litestream.deb
+ARG TARGETARCH
+ADD https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-linux-${TARGETARCH}.deb /tmp/litestream.deb
 RUN dpkg -i /tmp/litestream.deb && rm /tmp/litestream.deb
 
 COPY app ./app
@@ -31,16 +33,18 @@ RUN chmod -R a+rX /app
 
 # The runtime drops to this user (the entrypoint re-execs itself after
 # fixing volume ownership — fly volumes mount root-owned). Code stays
-# root-owned read-only; only the data locations become writable.
-RUN useradd --create-home --uid 1000 app
+# root-owned read-only; only the data locations become writable. `/data` is
+# present and writable so stock `docker run` needs no storage configuration.
+RUN useradd --create-home --uid 1000 app \
+    && install -d -o app -g app /data
 
 EXPOSE 8000
 
 # Boot order lives in scripts/docker-entrypoint.sh: litestream restore +
 # replicate only when BUCKET_NAME is set (fly.io + `fly storage create`;
 # plain `docker run` skips litestream), then alembic migrations, then a
-# single-worker uvicorn. --proxy-headers lets uvicorn honor X-Forwarded-*
-# from Fly's edge proxy.
+# deployment-selected ASGI app under one uvicorn worker. --proxy-headers lets
+# uvicorn honor X-Forwarded-* from Fly's edge proxy.
 ENV PYTHONPATH=/app
 
 CMD ["scripts/docker-entrypoint.sh"]

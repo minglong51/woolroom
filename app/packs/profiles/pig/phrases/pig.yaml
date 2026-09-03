@@ -1,0 +1,536 @@
+language: en
+body:
+  low:
+    grumpy:
+      - "*turns its snout into a folded foreleg and stays there*"
+      - "*folds both ears back and noses the rug without comment*"
+      - "*settles into a stubborn loaf, hooves tucked out of sight*"
+    neutral:
+      - "*settles its chin on the rug, ears loose*"
+      - "*lies broad and quiet, breathing in slow little puffs*"
+      - "*rests one cheek down while a loose ear shades its eye*"
+    content:
+      - "*lets out a deep sigh and goes soft through the shoulders*"
+      - "*stretches its hind legs and melts flat against the floor*"
+      - "*gives a drowsy snuffle as its belly settles comfortably*"
+  med:
+    grumpy:
+      - "*plants all four feet and studies the far wall*"
+      - "*angles its rump away and keeps one watchful eye open*"
+      - "*squares its shoulders, making a small monument of itself*"
+    neutral:
+      - "*tests the air with its snout, patient and alert*"
+      - "*pads a tidy circle before choosing a place to stand*"
+      - "*shifts its weight from hoof to hoof, taking everything in*"
+    content:
+      - "*leans close enough for one warm shoulder to touch*"
+      - "*brushes past with an easy nudge from its round flank*"
+      - "*stands nearby, tail drawing an unhurried curl*"
+  high:
+    grumpy:
+      - "*stamps once, then holds very still*"
+      - "*tosses its snout and marches three emphatic steps*"
+      - "*scuffs the rug with one front hoof, bristling with purpose*"
+    neutral:
+      - "*moves briskly around the rug, nose mapping every edge*"
+      - "*zigzags across the open floor, following invisible trails*"
+      - "*trots a quick perimeter with every ear on duty*"
+    content:
+      - "*bounces forward in two short hops, ears bright*"
+      - "*skips sideways and lands in a pleased little crouch*"
+      - "*dashes a loop, tail curled like a question mark*"
+action:
+  call:
+    low:
+      grumpy:
+        - "*one ear swivels toward the call; the rest does not move*"
+        - "*lets the sound pass, then flicks an ear after it*"
+        - "*noses beneath its foreleg as though the call can wait*"
+      neutral:
+        - "*lifts its snout from the rug and listens*"
+        - "*raises one ear and slowly turns its broad face*"
+        - "*pauses mid-snuffle to locate the voice*"
+      content:
+        - "*answers with a soft breath and ambles closer*"
+        - "*unfolds from rest and shuffles toward the sound*"
+        - "*gives a quiet grunt before closing the distance*"
+    med:
+      grumpy:
+        - "*looks over, waits a beat, then comes on its own terms*"
+        - "*answers with a doubtful snort from exactly where it stands*"
+        - "*takes the scenic route over, stopping to inspect a corner*"
+      neutral:
+        - "*turns neatly and crosses the room at an even pace*"
+        - "*orients both ears and pads straight toward the caller*"
+        - "*steps over with its snout lifted for a better fix*"
+      content:
+        - "*comes over with a small side-to-side sway*"
+        - "*approaches in an easy curve, tail making one small loop*"
+        - "*ambles in until its forehead is within greeting distance*"
+    high:
+      grumpy:
+        - "*wheels around quickly, then slows before arriving*"
+        - "*starts forward at once, then detours around an imaginary obstacle*"
+        - "*charges halfway over and finishes with a skeptical walk*"
+      neutral:
+        - "*trots across the rug, ears aimed forward*"
+        - "*pivots on neat hooves and trots to the sound*"
+        - "*follows the voice at a lively clip, nose out front*"
+      content:
+        - "*hurries in and stops with its snout beside your hand*"
+        - "*bounds over with a bright snuffle and dancing feet*"
+        - "*races in, overshoots by a step, and doubles back*"
+  feed:
+    low:
+      grumpy:
+        - "*inspects the bowl from two angles before beginning*"
+        - "*sniffs each edge of the dish before accepting its contents*"
+        - "*waits beside the food until the room becomes properly quiet*"
+      neutral:
+        - "*eats slowly, pausing once to breathe between bites*"
+        - "*takes small bites with its snout anchored over the center*"
+        - "*works through the meal at a calm, even rhythm*"
+      content:
+        - "*settles beside the bowl and eats with quiet focus*"
+        - "*folds its legs beside the dish and munches in peace*"
+        - "*keeps a pleased little hum beneath the steady chewing*"
+    med:
+      grumpy:
+        - "*nudges the bowl into place, then gets to work*"
+        - "*rearranges two morsels with its nose before choosing either*"
+        - "*stands over the dish like a serious dining critic*"
+      neutral:
+        - "*works around the rim in a steady circle*"
+        - "*alternates tidy bites with quick surveys of the room*"
+        - "*noses the food into a small pile and begins there*"
+      content:
+        - "*finishes the bowl and checks the nearby floor carefully*"
+        - "*munches eagerly, tail marking slow circles behind it*"
+        - "*leans into the meal with a satisfied shuffle of hooves*"
+    high:
+      grumpy:
+        - "*arrives fast, brakes hard, and examines the offering*"
+        - "*skids up to the dish and guards the first bite with a glare*"
+        - "*circles the food once at speed before diving in*"
+      neutral:
+        - "*is at the bowl before the last piece settles*"
+        - "*trots directly to the meal and begins with efficient enthusiasm*"
+        - "*samples one bite, then briskly clears a path around the bowl*"
+      content:
+        - "*eats with bright concentration, ears keeping time*"
+        - "*arrives in a happy scramble and crunches with its whole face*"
+        - "*bobs over the dish, tail coiling tighter with every bite*"
+  greet:
+    low:
+      grumpy:
+        - "*keeps its chin down but points one ear your way*"
+        - "*acknowledges the arrival with a single guarded ear flick*"
+        - "*remains tucked down, peering over the curve of its snout*"
+      neutral:
+        - "*raises its head and takes one thoughtful sniff*"
+        - "*blinks up from the rug and follows the newcomer with its ears*"
+        - "*extends its nose for a quiet inventory of the air*"
+      content:
+        - "*shifts over to leave a warm place beside it*"
+        - "*rests its snout near your shoe and resumes breathing softly*"
+        - "*makes a little room, then settles against the new warmth*"
+    med:
+      grumpy:
+        - "*stands squarely, deciding whether the room has improved*"
+        - "*offers a short snort and keeps a dignified hoof of distance*"
+        - "*approaches just close enough to conduct an inspection*"
+      neutral:
+        - "*walks halfway over and waits for you to finish arriving*"
+        - "*pads over, sniffs once, and stands companionably nearby*"
+        - "*greets the room with a level gaze and an open stance*"
+      content:
+        - "*meets you at the rug and presses its snout to your knee*"
+        - "*draws a slow circle around you before leaning in*"
+        - "*nudges a shin gently and stays for the answer*"
+    high:
+      grumpy:
+        - "*circles once, then offers a brisk nod of the snout*"
+        - "*trots up with more ceremony than welcome, ears sharply forward*"
+        - "*performs a quick lap around you before deciding to stop*"
+      neutral:
+        - "*trots up, checks the air around you, and settles*"
+        - "*arrives at a brisk shuffle and checks both sides of you*"
+        - "*meets you head-on, then arcs neatly into place*"
+      content:
+        - "*hops forward and wiggles from shoulders to tail*"
+        - "*bounds close with a corkscrew tail and rapid little steps*"
+        - "*dances around your ankles, snuffling a cheerful hello*"
+  message:
+    low:
+      grumpy:
+        - "*hears the chime and buries its snout a little deeper*"
+        - "*responds to the small sound by turning one ear toward the wall*"
+        - "*sinks lower as the device gives another brief note*"
+      neutral:
+        - "*opens one eye toward the screen glow, then rests again*"
+        - "*notices the light, gives it a slow blink, and settles*"
+        - "*listens to the tone without lifting its chin*"
+      content:
+        - "*dozes beside your hand while the message arrives*"
+        - "*nestles closer while the screen casts a quiet square of light*"
+        - "*lets one soft snuffle join the fading notification*"
+    med:
+      grumpy:
+        - "*looks from the screen to you and exhales through its nose*"
+        - "*gives the device a flat look and redirects its nose elsewhere*"
+        - "*steps between you and the chime, then stands there*"
+      neutral:
+        - "*tips its head at the chime and listens to the quiet after*"
+        - "*watches the light change, ears tilted in mild interest*"
+        - "*checks the device with one careful sniff and steps back*"
+      content:
+        - "*settles against your side while you read*"
+        - "*leans a warm flank nearby as the screen wakes*"
+        - "*sits close, following the little sounds with relaxed ears*"
+    high:
+      grumpy:
+        - "*paces past the glowing screen and pointedly keeps going*"
+        - "*startles at the tone, then marches past it with stiff little steps*"
+        - "*circles the device once and dismisses it with a snort*"
+      neutral:
+        - "*arrives at the chime with its snout already searching*"
+        - "*trots over to investigate the fresh patch of light*"
+        - "*follows the sound to its source and peers over the edge*"
+      content:
+        - "*leans into the space beside the screen, ready to keep company*"
+        - "*bounds beside you at the chime, tail winding into a tight curl*"
+        - "*hurries over and settles proudly next to the glowing rectangle*"
+  pet:
+    low:
+      grumpy:
+        - "*holds still under the hand, ears set sideways*"
+        - "*endures one measured pass before tucking its shoulder away*"
+        - "*flattens an ear and makes the hand negotiate every inch*"
+      neutral:
+        - "*accepts the stroke with a slow breath through the snout*"
+        - "*stays quiet while the palm travels over its warm bristles*"
+        - "*lowers its head, allowing an unhurried stroke*"
+      content:
+        - "*sinks heavier into the rug beneath your palm*"
+        - "*loosens from snout to tail as the hand moves slowly*"
+        - "*settles deeper with each gentle pass along its side*"
+    med:
+      grumpy:
+        - "*steps aside once, then returns a shoulder to the hand*"
+        - "*sidesteps the palm, then parks within reach again*"
+        - "*braces for the touch and softens only at the very end*"
+      neutral:
+        - "*leans into each pass by a careful inch*"
+        - "*adjusts its stance so the next stroke lands squarely*"
+        - "*follows the hand with a calm turn of its body*"
+      content:
+        - "*angles its whole side toward the next stroke*"
+        - "*nudges beneath the palm and holds the chosen angle*"
+        - "*presses closer, bristles smoothing under the repeated motion*"
+    high:
+      grumpy:
+        - "*ducks the first touch and chooses the second*"
+        - "*darts beyond reach, wheels back, and presents one shoulder*"
+        - "*meets the hand with a quick snout-bump before accepting it*"
+      neutral:
+        - "*walks a small circle beneath the moving hand*"
+        - "*loops around the palm, offering a different side each time*"
+        - "*keeps its feet busy while its back follows the stroke*"
+      content:
+        - "*wiggles so thoroughly that the petting has to follow*"
+        - "*wriggles under the hand in a blur of bristles and joy*"
+        - "*prances through each pass, returning immediately for the next*"
+  play:
+    low:
+      grumpy:
+        - "*rests one hoof on the toy and declines to elaborate*"
+        - "*pins the toy beneath its chin and stares past it*"
+        - "*noses the toy into a corner where games cannot proceed*"
+      neutral:
+        - "*nudges the toy once with its snout and watches it roll*"
+        - "*turns the toy over with one slow, investigative push*"
+        - "*rests beside the toy, occasionally testing it with a hoof*"
+      content:
+        - "*keeps the toy tucked close between its forelegs*"
+        - "*curls around the toy as if it belongs in the nest*"
+        - "*gives the toy a lazy nudge and settles beside its new position*"
+    med:
+      grumpy:
+        - "*pushes the toy out of reach, then goes after it anyway*"
+        - "*bumps the toy away, watches it stop, and refuses to be impressed*"
+        - "*hooks it backward with one hoof after pretending to lose interest*"
+      neutral:
+        - "*rolls the toy along the rug in a patient line*"
+        - "*steers the toy between its front feet with careful taps*"
+        - "*follows each wobble with its snout close to the floor*"
+      content:
+        - "*carries the toy a short distance and sets it at your feet*"
+        - "*nudges the toy toward you and waits with bright ears*"
+        - "*pushes it in a looping course, tail turning along with it*"
+    high:
+      grumpy:
+        - "*charges past the toy, turns sharply, and claims the reroute*"
+        - "*barrels into the game, scatters everything, and claims victory*"
+        - "*flings the toy aside with its snout, then races it to the wall*"
+      neutral:
+        - "*chases the toy in quick loops around the rug*"
+        - "*bats the toy ahead and pursues it on quick little hooves*"
+        - "*ricochets after every bounce with focused ears*"
+      content:
+        - "*bounds after it, stops, and bounds back for another round*"
+        - "*springs around the toy in a series of delighted half-circles*"
+        - "*sends it rolling and gallops after it with a happy snort*"
+  walk:
+    low:
+      grumpy:
+        - "*examines the threshold at length before crossing it*"
+        - "*remains planted until the open doorway has made its case*"
+        - "*inches toward the exit with frequent skeptical pauses*"
+      neutral:
+        - "*gets up carefully and follows at a measured pace*"
+        - "*crosses the threshold one deliberate hoof at a time*"
+        - "*follows with its snout tracing a quiet path along the floor*"
+      content:
+        - "*ambles out, nose low and shoulders loose*"
+        - "*strolls alongside, tail relaxed in a gentle curl*"
+        - "*eases through the doorway and settles into a comfortable pace*"
+    med:
+      grumpy:
+        - "*pauses at the doorway until the route smells acceptable*"
+        - "*chooses a route beside the route and proceeds stubbornly*"
+        - "*stops for a lengthy consultation with every interesting scent*"
+      neutral:
+        - "*sets off steadily, checking each new patch of air*"
+        - "*walks on with even steps and a nose tuned to the ground*"
+        - "*keeps a steady line, ears surveying left and right*"
+      content:
+        - "*walks beside you with an easy, rolling stride*"
+        - "*ambles close, matching your pace with a rolling gait*"
+        - "*travels at your side, stopping only for especially good smells*"
+    high:
+      grumpy:
+        - "*rushes to the door, then insists on one last inspection*"
+        - "*surges ahead, doubles back, and objects to the resulting delay*"
+        - "*attacks the path in short bursts separated by firm stops*"
+      neutral:
+        - "*trots through the doorway with its snout leading*"
+        - "*trots out briskly, mapping each turn with its snout*"
+        - "*moves from scent to scent in a purposeful zigzag*"
+      content:
+        - "*bounces across the threshold and waits just beyond it*"
+        - "*skips through the doorway and springs into a lively trot*"
+        - "*races a short loop ahead, then returns to your side*"
+spot:
+  belly:
+    low:
+      grumpy:
+        - "*draws its legs in and keeps the belly covered*"
+        - "*curls tighter, hiding the soft underside behind four careful hooves*"
+        - "*turns onto its chest and seals the belly against the rug*"
+      neutral:
+        - "*rolls just far enough for one warm patch of belly to show*"
+        - "*permits a brief touch while resting on one hip*"
+        - "*stays loosely curled as the palm finds a quiet patch*"
+      content:
+        - "*settles onto its side, belly loose beneath your hand*"
+        - "*releases a long breath and lets its middle go slack*"
+        - "*stretches open, warm belly rising beneath a sleepy rhythm*"
+    med:
+      grumpy:
+        - "*allows one pass, then gathers its feet underneath*"
+        - "*rolls away from the touch, then pauses within arm's reach*"
+        - "*catches the palm with one foreleg and redirects it politely*"
+      neutral:
+        - "*holds the sideways pose and watches your hand*"
+        - "*shifts onto its side and holds a balanced half-roll*"
+        - "*lets the hand cross its belly while its ears monitor the room*"
+      content:
+        - "*stretches out with its legs adrift and stays there*"
+        - "*opens into a comfortable sprawl, feet pointing everywhere*"
+        - "*rocks onto its side and offers a broad, warm landing place*"
+    high:
+      grumpy:
+        - "*twists upright before the second pass arrives*"
+        - "*kicks its feet into order and springs back onto its chest*"
+        - "*wriggles out of the rub with an indignant little huff*"
+      neutral:
+        - "*drops onto one side, then pops up to reconsider*"
+        - "*rolls from side to side, never quite choosing a position*"
+        - "*pedals its hooves once while the palm passes underneath*"
+      content:
+        - "*flops over with a soft thump and a full-body wiggle*"
+        - "*wriggles belly-up, tail ticking against the rug*"
+        - "*stretches all four legs wide and squirms beneath the touch*"
+  body:
+    low:
+      grumpy:
+        - "*shifts its ribs just beyond the center of the stroke*"
+        - "*makes its side firm and unyielding beneath the palm*"
+        - "*edges away until only the tips of its bristles can be reached*"
+      neutral:
+        - "*breathes evenly beneath the long pass*"
+        - "*rests quietly as the stroke follows the round line of its flank*"
+        - "*lets the hand move from shoulder to hip without shifting*"
+      content:
+        - "*leans its warm side into the length of your hand*"
+        - "*settles its full weight beside you, side warm and yielding*"
+        - "*gives a sleepy snuffle as the long strokes continue*"
+    med:
+      grumpy:
+        - "*steps once to reset the distance, then stands still*"
+        - "*rotates one quarter-turn to put the least convenient side forward*"
+        - "*accepts the touch with a square stance and a sideways glance*"
+      neutral:
+        - "*keeps all four feet planted while the hand travels*"
+        - "*shifts smoothly so the palm can follow its broad back*"
+        - "*stands at ease while each stroke travels the same route*"
+      content:
+        - "*curves gently toward each returning stroke*"
+        - "*rolls its shoulder into the hand and stays close*"
+        - "*presses its rounded flank under the palm in a slow arc*"
+    high:
+      grumpy:
+        - "*moves out from under the hand and back beside it*"
+        - "*zigzags beneath the stroke, making a puzzle of its own back*"
+        - "*darts aside, then bumps the hand with a challenging shoulder*"
+      neutral:
+        - "*turns in place to keep one side within reach*"
+        - "*pivots around the hand with quick, balanced steps*"
+        - "*threads past the palm so the touch travels from side to side*"
+      content:
+        - "*presses shoulder, ribs, and rump into one sweeping pass*"
+        - "*spins into the stroke, tail bouncing over its rump*"
+        - "*rushes under the hand and circles back for a second sweep*"
+  ear:
+    low:
+      grumpy:
+        - "*folds the ear close and waits for the hand to move on*"
+        - "*pins the ear flat beneath a deeply unimpressed brow*"
+        - "*angles its head so the ear slips quietly out of reach*"
+      neutral:
+        - "*lets the ear rest softly between your fingers*"
+        - "*keeps the ear still while the fingertips trace its soft edge*"
+        - "*lowers its head and lets the ear fold naturally*"
+      content:
+        - "*tilts until the ear rub reaches exactly the right place*"
+        - "*closes its eyes as the base of the ear is rubbed*"
+        - "*rests into the touch until the ear lies warm and loose*"
+    med:
+      grumpy:
+        - "*flicks the ear free, then offers it again a moment later*"
+        - "*snaps the ear backward, then slowly relaxes it again*"
+        - "*turns its head just enough to complicate the rub*"
+      neutral:
+        - "*tracks your fingers with one small turn of the ear*"
+        - "*swivels the ear beneath your fingers as new sounds pass*"
+        - "*holds a patient tilt while the fingertips circle the base*"
+      content:
+        - "*leans down as the ear goes loose under the rub*"
+        - "*presses the side of its head closer for another slow rub*"
+        - "*lets the ear flop sideways as its stance grows softer*"
+    high:
+      grumpy:
+        - "*shakes once and resets both ears at attention*"
+        - "*flicks both ears in rapid protest and steps around the hand*"
+        - "*jerks its head clear, then immediately returns to investigate*"
+      neutral:
+        - "*keeps the other ear busy listening around the room*"
+        - "*swivels under the touch, listening in every direction at once*"
+        - "*alternates quick ear turns with brief moments of stillness*"
+      content:
+        - "*tips sideways into the rub until one hoof lifts*"
+        - "*shimmies into the rub, one ear flapping with the motion*"
+        - "*leans hard enough that its little tail starts bobbing*"
+  head:
+    low:
+      grumpy:
+        - "*lowers its brow and keeps the snout pointed away*"
+        - "*draws its head back and offers only the topmost bristles*"
+        - "*turns its cheek away beneath a low, guarded brow*"
+      neutral:
+        - "*rests the weight of its head beneath your palm*"
+        - "*holds its broad forehead still for an even, gentle pass*"
+        - "*lets its snout sink while the palm rests above its eyes*"
+      content:
+        - "*pushes its forehead forward by one trusting inch*"
+        - "*nestles the crown of its head securely into your hand*"
+        - "*closes its eyes and lets its forehead grow heavy in the palm*"
+    med:
+      grumpy:
+        - "*holds the head steady, ears giving the only reply*"
+        - "*nudges the wrist aside, then waits under the hovering hand*"
+        - "*raises its brow as though evaluating the technique*"
+      neutral:
+        - "*follows the hand with a slow turn of the snout*"
+        - "*guides the palm from forehead to snout with one slow lift*"
+        - "*angles its head so the fingers travel between both ears*"
+      content:
+        - "*leans its broad forehead into your fingers*"
+        - "*slides its forehead along the palm and comes back again*"
+        - "*pushes gently upward until the hand settles at the crown*"
+    high:
+      grumpy:
+        - "*ducks aside and comes back when the hand slows down*"
+        - "*tosses its head free, circles once, and returns nose-first*"
+        - "*bumps the wrist with brisk precision before ducking away*"
+      neutral:
+        - "*lifts its chin, checks the air, and returns to the touch*"
+        - "*bobs beneath the palm, alternately touching brow and snout*"
+        - "*follows each movement with bright eyes and a lifted chin*"
+      content:
+        - "*bumps upward into your palm and wiggles in place*"
+        - "*pops its head into the hand with a delighted upward bounce*"
+        - "*rubs forehead-first in quick, enthusiastic little arcs*"
+  tail:
+    low:
+      grumpy:
+        - "*tucks the small curl close against its side*"
+        - "*sits firmly on the curl and refuses further discussion*"
+        - "*draws its rump away, protecting the tail behind one hip*"
+      neutral:
+        - "*the tail loosens by a fraction under your fingers*"
+        - "*keeps the curl quiet while the fingers skim nearby*"
+        - "*relaxes the tail against its side in a neat spiral*"
+      content:
+        - "*the curl gives one slow, contented sway*"
+        - "*lets the warm little curl rest lightly in your palm*"
+        - "*gives one lazy tail twitch and settles deeper*"
+    med:
+      grumpy:
+        - "*moves the tail neatly out of reach, then lets it return*"
+        - "*tightens the curl and shifts it to the far side*"
+        - "*swivels its rump away each time the hand draws near*"
+      neutral:
+        - "*holds still while the little curl is traced*"
+        - "*allows the curl to be followed from base to tip*"
+        - "*adjusts its stance while the tail makes one tidy coil*"
+      content:
+        - "*the tail uncurls halfway and springs softly back*"
+        - "*waves the curl gently beneath the tracing fingers*"
+        - "*leans forward as the tail loosens into a soft loop*"
+    high:
+      grumpy:
+        - "*whips around to inspect the hand behind it*"
+        - "*spins its rump away and snaps the curl back into place*"
+        - "*whirls to face the hand before it can reach the tail*"
+      neutral:
+        - "*the curl bobs while the rest of the pig stays alert*"
+        - "*switches the tail from side to side in quick small arcs*"
+        - "*lets the curl bounce freely while stepping in place*"
+      content:
+        - "*the tail bounces fast enough to move the whole rump*"
+        - "*wags the tight curl until both hind feet begin to dance*"
+        - "*corkscrews its tail merrily while its rump sways along*"
+tiny:
+  grumpy:
+    - "hnf."
+    - "rrf."
+    - "give me a minute."
+  neutral:
+    - "hmm?"
+    - "oh, hello."
+    - "i'm listening."
+  content:
+    - "mmh."
+    - "that's pleasant."
+    - "stay awhile."

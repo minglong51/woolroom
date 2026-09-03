@@ -2,7 +2,7 @@
 # Credentials + bucket name come from the app secrets that
 # `fly storage create woolroom-litestream` sets (AWS_* + BUCKET_NAME).
 dbs:
-  - path: /data/woolroom.db
+  - path: ${WOOLROOM_DB_PATH}
     replicas:
       - type: s3
         bucket: ${BUCKET_NAME}

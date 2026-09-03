@@ -39,6 +39,7 @@ GUEST_SCENE_KEYS = {
     "hungry",
     "scene_fx",
     "scene_events",
+    "visit",
     "app_version",
 }
 
@@ -350,7 +351,7 @@ def test_guest_pet_id_pins_resolution_and_never_falls_back(
         monkeypatch.setattr(settings, "guest_pet_id", "does-not-exist")
         missing = guest.get("/api/guest/scene")
         assert missing.status_code == 404
-        assert "demo cat" in missing.json()["detail"]
+        assert "demo pet" in missing.json()["detail"]
 
 
 def test_guest_scene_404_when_no_pets_at_all(tmp_path: Path, monkeypatch) -> None:
@@ -360,7 +361,7 @@ def test_guest_scene_404_when_no_pets_at_all(tmp_path: Path, monkeypatch) -> Non
         _grant_guest(guest)
         resp = guest.get("/api/guest/scene")
         assert resp.status_code == 404
-        assert "demo cat" in resp.json()["detail"]
+        assert "demo pet" in resp.json()["detail"]
 
 
 def test_seed_demo_pet_idempotent(tmp_path: Path) -> None:

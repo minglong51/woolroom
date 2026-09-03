@@ -2,7 +2,7 @@
 instead of staying frozen at adoption-day proportions.
 
 Convention: 1 real month (30 days) = 1 pet year.
-A cat's ~15-year lifespan compresses to ~15 months of room-time to a senior.
+A pet's ~15-year lifespan compresses to ~15 months of room-time to a senior.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ def pet_age_years(adopted_at: datetime | None, now: datetime | None = None) -> f
 def life_stage(adopted_at: datetime | None, now: datetime | None = None) -> str:
     years = pet_age_years(adopted_at, now)
     if years < 3:
-        return "kitten"
+        return "juvenile"
     if years < 7:
         return "young"
     if years < 12:
@@ -34,7 +34,7 @@ def life_stage(adopted_at: datetime | None, now: datetime | None = None) -> str:
 
 
 _RENDER_SCALE: dict[str, float] = {
-    "kitten": 0.7,
+    "juvenile": 0.7,
     "young": 0.85,
     "adult": 1.0,
     "senior": 0.95,
@@ -50,13 +50,13 @@ def render_scale(stage: str) -> float:
 # canvas transform. Offsets are pixel-space additions to poseProfile fields.
 #
 # Design intent:
-#   kitten — relatively oversized head, short body, smaller tail, head perked up
-#   young  — residual kitten bias, leaner body
+#   juvenile — relatively oversized head, short body, smaller tail, head perked up
+#   young    — residual juvenile bias, leaner body
 #   adult  — baseline (1.0 everywhere)
 #   senior — head slightly smaller, body slightly wider/squatter, head + ears
 #            carried lower (droop)
 _STAGE_PROPORTIONS: dict[str, dict[str, float]] = {
-    "kitten": {
+    "juvenile": {
         "headScale": 1.18,
         "bodyScaleX": 0.92,
         "bodyScaleY": 0.95,

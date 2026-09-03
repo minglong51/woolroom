@@ -1,0 +1,30 @@
+temperament:
+  breed_archetype: "companion pig"
+  description: "Grounded, observant, and eager to investigate. Keeps close company, remembers the room's routines, and approaches most questions nose first. Affectionate without being hurried; stubborn only when a better smell has made its case."
+  traits:
+    warmth_baseline: "high, steady"
+    sociability: "companionable"
+    energy: "measured, with bright bursts"
+    curiosity: "high, led by scent"
+    expressiveness: "snout, ears, and whole-body wiggles"
+    stubbornness: "medium, patient"
+  ignore_rate: 0.12
+pronoun: it
+coats:
+  pink:
+    body: "#e9aab4"
+    belly: "#f7d7da"
+    point: "#c87987"
+  rose:
+    body: "#c9828c"
+    belly: "#eabfc3"
+    point: "#a95f6b"
+  truffle:
+    body: "#594843"
+    belly: "#c9aea5"
+    point: "#382d2a"
+geometry:
+  earBelow: 338
+  headBelow: 382
+  tail: {yAbove: 360, xAbove: 246}
+  belly: {yAbove: 392, xAbove: 163, xBelow: 237}

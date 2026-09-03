@@ -6,7 +6,7 @@ from typing import Protocol
 
 from woolpack.cards import PetCardV1, parse_pet_card, pet_card_payload
 
-PLUGIN_API_VERSION = 1
+PLUGIN_API_VERSION = 2
 
 
 @dataclass(frozen=True, slots=True)

@@ -56,10 +56,8 @@ export const wsMethods = {
             || this.pet?.coat !== ev.pet.coat
           )
         );
+        if (cardSubjectChanged) this._invalidatePetCard?.(ev.pet.id);
         this._applyPetState(ev.pet);
-        if (cardSubjectChanged) {
-          this._refreshActiveCard(ev.pet.id, ev.pet.species, ev.pet.coat);
-        }
         if (this.guest) return; // no invites to mint, no presence to track
         if ((this.pet?.participant_count || 0) >= 2) {
           this.inviteUrl = null;
@@ -154,6 +152,7 @@ export const wsMethods = {
       if (this._woolVisitTransition) {
         this._woolVisitTransition(prevVisit, nextVisit);
       }
+      this._syncVisiblePetCards?.();
     },
 
     async _refreshPets() {
@@ -162,22 +161,15 @@ export const wsMethods = {
         if (!r.ok) return;
         const data = await r.json();
         this.pets = data.pets || [];
+        if (data.pet?.id === this.pet?.id) {
+          this._cachePetCard?.(this.pet, data.card || null);
+        }
+        this._syncVisiblePetCards?.();
       } catch (_) { /* the door repaints on the next full load */ }
     },
 
     async _refreshActiveCard(petId, species, coat) {
-      try {
-        const r = await fetch(`/api/card?pet=${encodeURIComponent(petId)}`, {
-          credentials: "same-origin",
-        });
-        if (!r.ok) return;
-        const data = await r.json();
-        if (
-          this.pet?.id === petId
-          && this.pet?.species === species
-          && this.pet?.coat === coat
-        ) this.card = data.card || null;
-      } catch (_) { /* mismatched cards already fall back to public art */ }
+      return this._refreshPetCard?.({ id: petId, species, coat }, { force: true });
     },
 
     reloadForFreshVersion() {

@@ -3,6 +3,8 @@ from typing import Annotated
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+from woolroom.adoption import AdoptionDefaults
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -43,10 +45,16 @@ class Settings(BaseSettings):
     moments_max_per_year: int = 52
 
     adopt_allowlist: str = ""
+    # The two deployment-owned adoption identities. Core cat/dog/pig profiles
+    # need no path; custom species validate after PACK_PATHS loads.
+    adopt_primary_species: str = "cat"
+    adopt_primary_coat: str = "marmalade"
+    adopt_secondary_species: str = "cat"
+    adopt_secondary_coat: str = "marmalade"
 
-    # Woolroom public content packs (pack format v1): comma-separated local
-    # directories, loaded + registered at boot by app/packs/loader.py behind
-    # fail-closed sanitization gates. Empty = no packs, behavior unchanged.
+    # Additional Woolroom public content packs (pack format v1): comma-separated
+    # local directories, loaded after the packaged dog/pig profiles by
+    # app/packs/loader.py behind fail-closed sanitization gates.
     # Every loaded pack is served through the public voice/asset catalogs.
     # Private site content must use the trusted catalog overlay provider.
     # NoDecode: env carries a CSV string (like ADOPT_ALLOWLIST), not JSON.
@@ -75,6 +83,15 @@ class Settings(BaseSettings):
         if not self.adopt_allowlist:
             return frozenset()
         return frozenset(s.strip() for s in self.adopt_allowlist.split(",") if s.strip())
+
+    @property
+    def adoption_defaults(self) -> AdoptionDefaults:
+        return AdoptionDefaults(
+            primary_species=self.adopt_primary_species,
+            primary_coat=self.adopt_primary_coat,
+            secondary_species=self.adopt_secondary_species,
+            secondary_coat=self.adopt_secondary_coat,
+        )
 
     @property
     def is_prod(self) -> bool:

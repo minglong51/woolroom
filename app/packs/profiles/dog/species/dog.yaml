@@ -1,0 +1,36 @@
+temperament:
+  breed_archetype: "independent companion dog"
+  description: >-
+    Alert, self-directed, and quietly affectionate. Watches before joining,
+    keeps its own pace, and answers with ears, posture, and an honest tail.
+  traits:
+    warmth_baseline: "medium"
+    sociability: "moderate"
+    energy: "medium"
+    curiosity: "high"
+    expressiveness: "body-language"
+    stubbornness: "medium"
+  ignore_rate: 0.33
+pronoun: it
+coats:
+  red:
+    body: "#b9673f"
+    belly: "#ead0ac"
+    point: "#4b352c"
+  sesame:
+    body: "#8d715f"
+    belly: "#dbc6ae"
+    point: "#433832"
+  black_tan:
+    body: "#3d3a38"
+    belly: "#c58c59"
+    point: "#252321"
+  cream:
+    body: "#dbc7a5"
+    belly: "#f2e5ca"
+    point: "#766354"
+geometry:
+  earBelow: 319
+  headBelow: 370
+  tail: {yAbove: 378, xAbove: 235}
+  belly: {yAbove: 382, xAbove: 168, xBelow: 232}

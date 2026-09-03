@@ -2,8 +2,8 @@
 
 Covers `app/packs/loader.py` + `app/packs/sanitize.py`: the happy path
 (species/phrases/quirk/voice register and are usable by the engine), every
-fail-closed gate (each refuses with its named PackError subclass), the
-empty-PACK_PATHS no-op, and the lifespan boot wiring.
+fail-closed gate (each refuses with its named PackError subclass), packaged
+core-profile idempotence, and the lifespan boot wiring.
 
 Every test that loads a pack mutates the process-global registries
 (SPECIES_REGISTRY, SPECIES_PHRASE_OVERLAYS, QUIRKS, CLIENT_VOICE); the
@@ -32,6 +32,7 @@ from app.data.quirks_catalog import QUIRKS
 from app.engine import quirks as engine
 from app.engine.mood import MoodState
 from app.packs import (
+    CORE_PROFILE_ROOT,
     LOADED_PACKS,
     PACK_ASSETS,
     PackCollisionError,
@@ -44,6 +45,7 @@ from app.packs import (
     PackSvgError,
     PackVocabError,
     PackVoiceError,
+    load_core_profiles,
     load_pack,
     load_packs,
 )
@@ -171,6 +173,40 @@ def test_empty_pack_paths_is_a_noop() -> None:
     assert LOADED_PACKS == []
 
 
+def test_core_profiles_load_once_and_reserve_their_species() -> None:
+    first = load_core_profiles()
+    second = load_core_profiles()
+
+    assert [record.name for record in first] == ["dog", "pig"]
+    assert second == first
+    assert LOADED_PACKS == first
+    assert species_mod.SPECIES == ("cat", "dog", "pig")
+    assert set(PACK_ASSETS) == {"dog", "pig"}
+    assert set(bl.SPECIES_PHRASE_OVERLAYS) == {"dog", "pig"}
+
+    with pytest.raises(PackCollisionError, match="species 'dog' collides"):
+        load_packs([str(CORE_PROFILE_ROOT / "dog")])
+
+
+def test_core_profile_repeat_fails_closed_on_inconsistent_registry() -> None:
+    load_core_profiles()
+    PACK_ASSETS.pop("dog")
+
+    with pytest.raises(PackCollisionError, match="inconsistent process registry state"):
+        load_core_profiles()
+
+
+@pytest.mark.parametrize("order", [("dog", "pig"), ("pig", "dog")])
+def test_core_profiles_are_cross_pack_compatible_in_either_order(
+    order: tuple[str, str],
+) -> None:
+    records = load_packs([str(CORE_PROFILE_ROOT / species) for species in order])
+
+    assert [record.species for record in records] == [[order[0]], [order[1]]]
+    assert set(PACK_ASSETS) == {"dog", "pig"}
+    assert set(bl.SPECIES_PHRASE_OVERLAYS) == {"dog", "pig"}
+
+
 def test_pack_paths_env_parses_comma_separated(monkeypatch) -> None:
     monkeypatch.setenv("PACK_PATHS", "/a, /b ,, /c ")
     assert Settings(_env_file=None).pack_paths == ["/a", "/b", "/c"]
@@ -208,19 +244,21 @@ def _boot_app(tmp_path: Path, monkeypatch, pack_paths_env: str | None):
 def test_lifespan_loads_packs_from_pack_paths(tmp_path: Path, monkeypatch) -> None:
     main = _boot_app(tmp_path, monkeypatch, str(FIXTURE_PACK))
     calls = []
+    monkeypatch.setattr(main, "load_core_profiles", lambda: calls.append("core") or [])
     monkeypatch.setattr(main, "load_packs", lambda paths: calls.append(list(paths)) or [])
     with TestClient(main.create_app()):
         pass
-    assert calls == [[str(FIXTURE_PACK)]]
+    assert calls == ["core", [str(FIXTURE_PACK)]]
 
 
 def test_lifespan_default_pack_paths_is_empty_noop(tmp_path: Path, monkeypatch) -> None:
     main = _boot_app(tmp_path, monkeypatch, None)
     calls = []
+    monkeypatch.setattr(main, "load_core_profiles", lambda: calls.append("core") or [])
     monkeypatch.setattr(main, "load_packs", lambda paths: calls.append(list(paths)) or [])
     with TestClient(main.create_app()):
         pass
-    assert calls == [[]]
+    assert calls == ["core", []]
 
 
 def test_lifespan_refuses_to_boot_on_a_gate_violation(tmp_path: Path, monkeypatch) -> None:

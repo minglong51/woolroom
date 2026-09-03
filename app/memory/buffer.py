@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from typing import Any
 
 from sqlalchemy import delete, select
@@ -76,6 +77,24 @@ async def recent(session: AsyncSession, pet_id: str, limit: int = 5) -> list[Buf
     )
     result = await session.execute(q)
     return list(result.scalars().all())
+
+
+async def latest_event_of_types(
+    session: AsyncSession,
+    pet_id: str,
+    event_types: Collection[str],
+) -> BufferEvent | None:
+    q = (
+        select(BufferEvent)
+        .where(
+            BufferEvent.pet_id == pet_id,
+            BufferEvent.event_type.in_(event_types),
+        )
+        .order_by(BufferEvent.created_at.desc(), BufferEvent.id.desc())
+        .limit(1)
+    )
+    result = await session.execute(q)
+    return result.scalar_one_or_none()
 
 
 async def _prune(session: AsyncSession, pet_id: str) -> None:

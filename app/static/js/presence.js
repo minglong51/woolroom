@@ -1,3 +1,9 @@
+const GUEST_PUBLIC_STORIES = [
+  { kicker: "someone was here", line: "the rug is still warm near one lamp." },
+  { kicker: "a small trace", line: "one lamp has dimmed; the postcard stayed where it was left." },
+  { kicker: "the room kept it", line: "a folded paper waits on the wall while the room settles." },
+];
+
 // Household/presence copy, partner aliases, realtime labels, room notes.
 export const presenceMethods = {
     applyAlias(name) {
@@ -52,7 +58,7 @@ export const presenceMethods = {
 
     householdLine() {
       const names = this.householdNames();
-      const petName = this.pet?.name || "the cat";
+      const petName = this.pet?.name || "the pet";
       const online = this.pet?.online_count || 0;
       if (this.guest) return `${petName}'s room.`;
       if (this.pet?.visit?.role === "away") {
@@ -71,6 +77,11 @@ export const presenceMethods = {
         return `for now, this room belongs to ${this.user.display_name} and ${this.pet.name}.`;
       }
       return "this room is still becoming shared.";
+    },
+
+    guestPublicStory() {
+      const utcDay = Math.floor(Date.now() / 86_400_000);
+      return GUEST_PUBLIC_STORIES[utcDay % GUEST_PUBLIC_STORIES.length];
     },
 
     presenceMode() {
@@ -92,7 +103,7 @@ export const presenceMethods = {
       if (mode === "together") return "the room feels fully inhabited.";
       // Positive framing for the apart state — the room holds the absent
       // partner's place instead of announcing the absence.
-      return `${this.pet?.name || "the cat"} is keeping ${this.otherHumanName()}'s spot warm.`;
+      return `${this.pet?.name || "the pet"} is keeping ${this.otherHumanName()}'s spot warm.`;
     },
 
     coupleRhythmLine() {
@@ -101,7 +112,7 @@ export const presenceMethods = {
       // Real-time presence already covers the "both connected" feeling;
       // this is the async layer — "you've both touched the room lately".
       if (rhythm.together_recent && this.presenceMode() !== "together") {
-        return `${this.pet?.name || "the cat"} has felt both of you in the last hour.`;
+        return `${this.pet?.name || "the pet"} has felt both of you in the last hour.`;
       }
       if (rhythm.lopsided_hours && rhythm.lopsided_hours >= 4) {
         const hours = rhythm.lopsided_hours;
@@ -109,12 +120,12 @@ export const presenceMethods = {
         if (rhythm.partner_minutes !== null && rhythm.partner_minutes > rhythm.viewer_minutes) {
           // Same fact ("partner last touched the room ~N hours ago"), framed
           // as time shared with the cat rather than time the partner owes.
-          return `you and ${this.pet?.name || "the cat"} have had the room to yourselves for about ${hours} hour${hours === 1 ? "" : "s"}.`;
+          return `you and ${this.pet?.name || "the pet"} have had the room to yourselves for about ${hours} hour${hours === 1 ? "" : "s"}.`;
         }
         // Never count the viewer's own hours back at them — "you've been
         // away" is the guilt pattern this product exists to refuse. Absence
         // is held, not owed.
-        return `${this.pet?.name || "the cat"} kept your spot on the rug warm.`;
+        return `${this.pet?.name || "the pet"} kept your spot on the rug warm.`;
       }
       return "";
     },

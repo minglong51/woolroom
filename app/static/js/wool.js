@@ -14,11 +14,12 @@
 
 export const sceneMethods = {
   _petPronoun() {
+    const card = this.petCardFor?.(this.pet) || this.card;
     if (
-      this.card?.species === this.pet?.species
-      && this.card?.coat === this.pet?.coat
-      && this.card?.pronoun
-    ) return this.card.pronoun;
+      card?.species === this.pet?.species
+      && card?.coat === this.pet?.coat
+      && card?.pronoun
+    ) return card.pronoun;
     return this.pet?.pronoun || "he";
   },
 

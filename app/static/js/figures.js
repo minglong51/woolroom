@@ -155,11 +155,12 @@ export function figureSvg(species, { visitor = false, packs = null } = {}) {
 
 // A playdate guest, wrapped in its own coat palette so an ash cat can visit
 // a tuxedo cat without either wool bleeding into the other.
-export function visitorMarkup(species, coat, packs) {
-  const p = paletteFor(species, coat, packs);
+export function visitorMarkup(species, coat, packs, card = null, pet = null) {
+  const resolvedPacks = packsForPet(card, pet, packs);
+  const p = paletteFor(species, coat, resolvedPacks);
   return (
     `<g style="--dog-body:${p.body}; --dog-belly:${p.belly}; --dog-point:${p.point}">`
-    + figureSvg(species, { visitor: true, packs })
+    + figureSvg(species, { visitor: true, packs: resolvedPacks })
     + "</g>"
   );
 }
@@ -173,7 +174,7 @@ export function visitorMarkup(species, coat, packs) {
 // /api/packs fetch, null when the deploy carries no packs).
 export const figureMethods = {
   petFigureSvg() {
-    const packs = packsForPet(this.card, this.pet, this.packs);
+    const packs = packsForPet(this.petCardFor?.(this.pet), this.pet, this.packs);
     return figureSvg(this.pet?.species || "cat", { packs });
   },
   figureCoatStyle() {
@@ -183,23 +184,39 @@ export const figureMethods = {
     // Builtin cat (and the unknown-species cat fallback) return "": the
     // data-coat rules keep owning their recolor, unchanged.
     const species = this.pet?.species;
-    const packs = packsForPet(this.card, this.pet, this.packs);
-    if (!species || (!this.card && PALETTES[species]) || !packs?.[species]) return "";
+    const card = this.petCardFor?.(this.pet) || null;
+    const packs = packsForPet(card, this.pet, this.packs);
+    if (!species || (!card && PALETTES[species]) || !packs?.[species]) return "";
     const p = paletteFor(species, this.pet?.coat, packs);
     return `--dog-body:${p.body}; --dog-belly:${p.belly}; --dog-point:${p.point}`;
   },
-  catPreviewSvg() {
-    // Landing + adopt + ceremony previews: the cat figure minus the
-    // singleton ids — the live room's figure owns those even while its
-    // section is hidden (x-show keeps the DOM), so every preview injects
-    // the visitor variant.
-    return figureSvg("cat", { visitor: true });
+  petPreviewSvg(species) {
+    return figureSvg(species || "cat", { visitor: true, packs: this.packs });
+  },
+  previewCoatStyle(species, coat) {
+    if (!species || PALETTES[species] || !this.packs?.[species]) return "";
+    const p = paletteFor(species, coat, this.packs);
+    return `--dog-body:${p.body}; --dog-belly:${p.belly}; --dog-point:${p.point}`;
+  },
+  ceremonyPreviewSvg() {
+    const pet = this.ceremonyPet?.();
+    const packs = packsForPet(this.petCardFor?.(pet), pet, this.packs);
+    return figureSvg(pet?.species || "cat", { visitor: true, packs });
+  },
+  ceremonyPreviewCoatStyle() {
+    const pet = this.ceremonyPet?.();
+    if (!pet) return "";
+    const card = this.petCardFor?.(pet) || null;
+    const packs = packsForPet(card, pet, this.packs);
+    if (!card && (PALETTES[pet.species] || !packs?.[pet.species])) return "";
+    const p = paletteFor(pet.species, pet.coat, packs);
+    return `--dog-body:${p.body}; --dog-belly:${p.belly}; --dog-point:${p.point}`;
   },
   visitorSvg() {
     // Compute-on-read, not just on transition: a boot mid-visit (payload
     // applied before the rig exists) must still paint the guest.
     const v = this.pet?.visit?.visitor;
-    if (v && !this._visitorArt) this._visitorArt = this.visitorArtFor(v.species, v.coat);
+    if (v && !this._visitorArt) this._visitorArt = this.visitorArtFor(v);
     return this._visitorArt || "";
   },
   visitorScaleTransform() {
@@ -207,10 +224,22 @@ export const figureMethods = {
     if (!s || s === 1) return "";
     return `translate(200 452) scale(${s}) translate(-200 -452)`;
   },
-  visitorArtFor(species, coat) {
-    return visitorMarkup(species, coat, this.packs);
+  visitorArtFor(visitor) {
+    if (!visitor) return "";
+    return visitorMarkup(
+      visitor.species,
+      visitor.coat,
+      this.packs,
+      this.petCardFor?.(visitor),
+      visitor,
+    );
   },
   figureTouchZone(species, x, y) {
-    return touchZoneFor(species, x, y, packsForPet(this.card, this.pet, this.packs));
+    return touchZoneFor(
+      species,
+      x,
+      y,
+      packsForPet(this.petCardFor?.(this.pet), this.pet, this.packs),
+    );
   },
 };
