@@ -658,6 +658,8 @@ class AdoptSecondIn(BaseModel):
 
     @model_validator(mode="after")
     def _coat_belongs_to_species(self) -> AdoptSecondIn:
+        if "coat" not in self.model_fields_set:
+            return self
         if "species" not in self.model_fields_set:
             _coat_is_registered(self.coat)
         elif self.coat not in coats_for(self.species):

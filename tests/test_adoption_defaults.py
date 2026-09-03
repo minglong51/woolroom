@@ -170,7 +170,7 @@ def test_composition_controls_both_adoptions_and_public_client_dto(
 
         second = owner.post(
             "/api/adopt-second",
-            json={"name": "Moss", "quirk": "content_sigher"},
+            json={"name": "Moss", "quirk": "content_sigher", "species": "cat"},
         )
         assert second.status_code == 200
         assert second.json()["pet"]["species"] == "cat"
