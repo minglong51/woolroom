@@ -164,8 +164,9 @@ home is not a platform.
 
 - **Author a species in a weekend.** A species is a data pack — YAML plus
   one SVG, no engine code. Copy the example, rename, draw, lint, boot.
-- **Host in one command.** One container or one `fly deploy`; nothing
-  metered, nothing phoning home; the database is a file you can copy.
+- **Host in one command.** One container or one `fly deploy`; by default,
+  nothing is metered or sent to an external model, and the database is a file
+  you can copy.
 - **Share by a link.** Your person joins the room through an invite link;
   a species you wrote is shared as a repo link.
 

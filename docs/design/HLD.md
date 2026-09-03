@@ -184,15 +184,17 @@ in-process.
 - **Woolpack release boundary.** A dedicated GitHub release workflow builds
   wheel and source artifacts in a read-only job, verifies that the
   `woolpack-v<version>` tag resolves to a commit on `main`, then passes only
-  those artifacts to a two-step publish job. PyPI authentication is a
+  deterministic artifacts to a two-step publish job. A retry accepts only an
+  exact hash-matching partial release, skips those immutable files, and verifies
+  that the completed public release matches the build. PyPI authentication is a
   short-lived OIDC identity scoped to the reviewed `pypi` environment; no
   registry token is stored in the repository or GitHub.
 - **Woolroom release boundary.** A separate `woolroom-v<version>` workflow
   requires root/Woolpack version parity, a tag commit on `origin/main`, and the
-  matching Woolpack version on the public package index before building; a
-  Woolroom version already present there is refused. Wheel and source artifacts
-  are inspected and installed beside an exact local Woolpack wheel; only
-  Woolroom artifacts cross into a distinct `pypi-woolroom` OIDC environment.
+  matching Woolpack version on the public package index before building. Wheel
+  and source artifacts are inspected and installed beside an exact local
+  Woolpack wheel; only Woolroom artifacts cross into a distinct
+  `pypi-woolroom` OIDC environment, with the same exact-hash resume rule.
 
 ## Deployment
 
@@ -212,7 +214,8 @@ CI installs the locked workspace and separately builds both `woolroom` and
 The core wheel smoke pins root/package/dependency version parity, requires the
 static client and Alembic resources in the artifact, installs wheel and source
 artifacts beside the exact Woolpack wheel, imports the public composition API,
-and upgrades a synthetic SQLite database from packaged migrations.
+checks source/CLI fallback and contributor-template version literals, and
+upgrades a synthetic SQLite database from packaged migrations.
 The standalone smoke checks that packaged resources match the canonical
 in-repo example/style, package modules contain no `app.*` imports, default and
 engine-derived `PackEnvironment` values agree, and isolated wheel and source

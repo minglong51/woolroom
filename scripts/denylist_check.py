@@ -46,16 +46,6 @@ PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("private app name", re.compile(r"\bwindow\.paws\b", re.IGNORECASE)),
 ]
 
-# Sanctioned residue: matched strings the gate tolerates, per repo-relative
-# path. Each entry needs a reason.
-ALLOW: dict[str, frozenset[str]] = {
-    # Internal Python identifier for the session-cookie dependency; the
-    # external contract is the cookie alias (COOKIE_NAME), so the parameter
-    # name is invisible outside this file. Rename is a deliberate decision,
-    # not a drive-by.
-    "app/api/deps.py": frozenset({"paws_session"}),
-}
-
 # Phrase leak guard. The four intent tables in app/data/body_language.py were
 # seeded from the private predecessor and carried two of one household's real
 # messages. Those are personal content rather than identifiers, so unlike
@@ -118,12 +108,9 @@ def scan(root: Path) -> list[str]:
             text = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
-        allowed = ALLOW.get(str(rel), frozenset())
         for lineno, line in enumerate(text.splitlines(), 1):
             for label, pattern in PATTERNS:
                 for match in pattern.finditer(line):
-                    if match.group(0).casefold() in {a.casefold() for a in allowed}:
-                        continue
                     hits.append(f"{rel}:{lineno}: {label}: {line.strip()[:120]}")
             for quoted in _QUOTED.finditer(line):
                 value = quoted.group(1) or quoted.group(2) or ""

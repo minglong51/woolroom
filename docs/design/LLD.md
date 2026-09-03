@@ -145,7 +145,7 @@ code is right and this doc is stale.
 
 ## `packages/woolpack/` — standalone pack contract and authoring wheel
 
-- `pyproject.toml` — independently buildable `woolpack` 0.2 distribution,
+- `pyproject.toml` — independently buildable `woolpack` 0.3.0 distribution,
   Python ≥3.11, with only PyYAML as a runtime dependency and console entry
   point `woolpack = woolpack.cli:main`. Its package README supplies the PyPI
   long description and links the owned product page, format guide, source,
@@ -374,6 +374,11 @@ code is right and this doc is stale.
 - `denylist_check.py` — publish gate: scans the tree for private
   identifiers (whole-word patterns, Tailscale IP range, private timezone);
   exit 1 with `file:line` on any hit.
+- `normalize_sdist.py` — rewrites release source archives with sorted members,
+  fixed ownership, and the tag commit epoch so a retry rebuilds identical bytes.
+- `verify_pypi_release.py` — compares local wheel/source hashes with the PyPI
+  JSON API, permits only a matching partial release before upload, and requires
+  exact completeness afterward.
 - `backup.sh` — pulls the live SQLite DB off the fly machine to local
   storage; exits nonzero unless `PRAGMA quick_check` returns `ok`.
 - `smoke-browse.sh` — optional headless visual smoke (requires a locally
@@ -382,7 +387,7 @@ code is right and this doc is stale.
 ## Workspace, container, and CI integration
 
 - Root `pyproject.toml` — the application uses the PEP 639-capable
-  `setuptools>=77` backend floor and keeps its direct `PyYAML`
+  pinned `setuptools==84.0.0` build backend and keeps its direct `PyYAML`
   declaration, pins the compatible `woolpack==0.3.0`, packages `app.static`,
   the canonical dog/pig profile data under `app.packs`, and the public
   `woolroom` namespace, and declares
@@ -407,26 +412,29 @@ code is right and this doc is stale.
   strict lint without the woolroom app. The core distribution smoke builds
   Woolroom wheel/source artifacts beside the exact Woolpack wheel, verifies
   package/dependency version parity and required static/migration/card/auth/
-  profile/database files and the `woolroom-db` entry point, installs each core
-  artifact in isolation, enters a composed dog/pig app lifespan twice,
-  exercises the stable composition API, and upgrades/inspects synthetic SQLite
-  through the packaged fail-closed boundary.
+  profile/database files and the `woolroom-db` entry point, checks every source
+  and CLI fallback plus contributor-template version pin, installs each core
+  artifact in isolation, enters a composed dog/pig app lifespan twice, exercises
+  the stable composition API, and upgrades/inspects synthetic SQLite through the
+  packaged fail-closed boundary.
 - `.github/workflows/release-woolpack.yml` — a published GitHub release whose
   tag starts with `woolpack-v` checks out the event SHA with full history,
   requires the tag version to match package metadata, and requires that SHA
   to be on `origin/main`. A read-only build job uses pinned release tooling to
-  build, metadata-check, and clean-install both distributions. The separate
-  `pypi` environment job receives only those artifacts; only this two-step job
-  gets OIDC `id-token: write`, and the pinned PyPA publisher action exchanges
-  that identity for the short-lived upload credential.
+  build, normalize, metadata-check, and clean-install both distributions. The
+  separate `pypi` environment job receives only those artifacts; only this
+  two-step job gets OIDC `id-token: write`, and the pinned PyPA publisher action
+  exchanges that identity for the short-lived upload credential. Before a retry,
+  exact hashes must describe a subset of the build; after upload, the public
+  release must be complete and hash-identical.
 - `.github/workflows/release-woolroom.yml` — distinct root trusted publishing
   for `woolroom-v<version>`. The read-only build validates tag/version/main
   ancestry, root/Woolpack parity, and availability of the matching Woolpack
-  version on the public index while refusing an already-published Woolroom
-  version; then it inspects and clean-installs both Woolroom artifacts with an
-  exact locally built Woolpack wheel and exercises the installed CLI, app, and
-  migrations. Only the resulting Woolroom artifacts enter the `pypi-woolroom`
-  OIDC publish job.
+  version on the public index; then it inspects and clean-installs both
+  deterministic Woolroom artifacts with an exact locally built Woolpack wheel
+  and exercises the installed CLI, app, and migrations. Only the resulting
+  Woolroom artifacts enter the `pypi-woolroom` OIDC publish job, with the same
+  hash-matching partial retry and complete-release verification.
 
 ## `packs/pebble/` — the shipped example pack
 
