@@ -24,6 +24,15 @@ export const apiMethods = {
       } catch (_) { /* packs stays null */ }
     },
 
+    async loadAdoptionDefaults() {
+      try {
+        const r = await fetch("/api/adoption-defaults", { credentials: "same-origin" });
+        if (r.ok) this.adoptionDefaults = await r.json();
+      } catch (_) {}
+      this.pickedCoat = this.adoptionDefaults.primary.coat;
+      this.secondCoat = this.adoptionDefaults.secondary.coat;
+    },
+
     _voiceFmt(template, vars) {
       // Fill a {slot}-style voice template with live data. Split/join, not
       // regex: values may contain anything (names, punctuation).

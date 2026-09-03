@@ -94,7 +94,9 @@
       <p class="scene-kicker tiny muted">shared quiet</p>
       <h1 class="logo landing-logo">woolroom</h1>
       <p class="landing-line">{{VOICE_TAGLINE}}</p>
-      <div class="landing-room">
+      <div class="landing-room" :data-species="primaryAdoptionSpecies()"
+           :data-coat="adoptionDefaults.primary.coat"
+           :style="previewCoatStyle(primaryAdoptionSpecies(), adoptionDefaults.primary.coat)">
         <svg viewBox="0 0 400 260" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
           <rect width="400" height="168" fill="var(--wall)"/>
           <rect y="168" width="400" height="92" fill="var(--floor)"/>
@@ -102,9 +104,9 @@
           <ellipse cx="200" cy="216" rx="112" ry="28" fill="var(--rug)"/>
           <ellipse cx="200" cy="216" rx="112" ry="28" fill="none" stroke="var(--thread)" stroke-width="2" stroke-dasharray="2.5 9" stroke-linecap="round" opacity=".7"/>
           <!-- the room's own figure (figures.js), scaled from its 400×520
-               frame into this one: ground line (200,450) → (200,217). No
-               [data-coat] ancestor here, so the art's baked-in red wool shows. -->
-          <g transform="translate(200 217) scale(0.7) translate(-200 -450)" x-html="catPreviewSvg()"></g>
+               frame into this one: ground line (200,450) → (200,217). -->
+          <g transform="translate(200 217) scale(0.7) translate(-200 -450)"
+             x-html="petPreviewSvg(primaryAdoptionSpecies())"></g>
         </svg>
       </div>
       <p class="landing-preview muted" x-text="landingPreviewLine()"></p>
@@ -146,8 +148,10 @@
     <div class="adopt-layout">
       <aside class="adopt-preview quiet-panel">
         <p class="tiny muted">future room</p>
-        <h3 class="adopt-preview-name" x-text="petName.trim() || 'your cat'"></h3>
-        <div class="adopt-mini-scene" aria-hidden="true" :data-coat="pickedCoat"
+        <h3 class="adopt-preview-name" x-text="petName.trim() || primaryPetLabel()"></h3>
+        <div class="adopt-mini-scene" aria-hidden="true"
+             :data-species="primaryAdoptionSpecies()" :data-coat="pickedCoat"
+             :style="previewCoatStyle(primaryAdoptionSpecies(), pickedCoat)"
              :class="quirkAuditionClasses()">
           <svg viewBox="0 0 400 240" preserveAspectRatio="xMidYMid slice">
             <rect width="400" height="156" fill="var(--wall)"/>
@@ -162,7 +166,8 @@
               <!-- the room's own figure (figures.js), scaled from its 400×520
                    frame into this one: ground line (200,450) → (200,202). The
                    audition CSS lands on .mini-dog + the rig classes. -->
-              <g transform="translate(200 202) scale(0.64) translate(-200 -450)" x-html="catPreviewSvg()"></g>
+              <g transform="translate(200 202) scale(0.64) translate(-200 -450)"
+                 x-html="petPreviewSvg(primaryAdoptionSpecies())"></g>
             </g>
             <g class="mini-stash">
               <ellipse cx="260" cy="197" rx="16" ry="6" fill="#8e7f69"/>
@@ -208,7 +213,8 @@
         <div class="adopt-section-head">
           <div>
             <h3>choose two permanent habits</h3>
-            <p class="muted tiny">small things the cat will keep doing for the rest of its life.</p>
+            <p class="muted tiny"
+               x-text="`small things the ${speciesLabel(primaryAdoptionSpecies())} will keep doing for the rest of its life.`"></p>
           </div>
           <div class="selection-badge tiny" x-text="`${pickedQuirks.length}/2 chosen`"></div>
         </div>
@@ -607,12 +613,12 @@
                   x-text="inviteCopied ? 'copied — hand it to them' : 'copy invite link'"></button>
         </div>
 
-        <!-- co-adoption ceremony: the second cat arrived half-decided; this
+        <!-- co-adoption ceremony: the second pet arrived half-decided; this
              card is the partner's doorway to picking its second habit. -->
         <div class="invite-card quiet-panel ceremony-card" x-show="ceremonyPet() && !showCeremony" x-cloak>
           <p class="invite-title">{{VOICE_CEREMONY_CARD_TITLE}}</p>
           <p class="tiny muted">
-            <span x-text="ceremonyPet()?.name || 'the new cat'"></span> {{VOICE_CEREMONY_CARD_NOTE}}
+            <span x-text="ceremonyPet()?.name || 'the new pet'"></span> {{VOICE_CEREMONY_CARD_NOTE}}
           </p>
           <button class="ghost invite-copy" @click="openCeremony()">{{VOICE_CEREMONY_CARD_BUTTON}}</button>
         </div>
@@ -648,19 +654,21 @@
          @click="showMemory = false; showSettings = false; showCeremony = false"
          x-cloak></div>
 
-    <!-- The ceremony: the partner meets the new cat and picks its second
+    <!-- The ceremony: the partner meets the new pet and picks its second
          habit. Its first habit is already sewn in — shown as chosen,
          unchangeable. -->
     <aside class="drawer ceremony-drawer" x-show="showCeremony" @click.outside="showCeremony = false" x-cloak>
       <button class="drawer-close" @click="showCeremony = false" aria-label="close">×</button>
-      <h3 x-text="`meet ${ceremonyPet()?.name || 'the new cat'}`"></h3>
+      <h3 x-text="`meet ${ceremonyPet()?.name || 'the new pet'}`"></h3>
       <div class="adopt-mini-scene ceremony-preview" aria-hidden="true"
-           :data-species="ceremonyPet()?.species || 'cat'" :data-coat="ceremonyPet()?.coat || 'marmalade'">
+           :data-species="ceremonyPet()?.species || secondaryAdoptionSpecies()"
+           :data-coat="ceremonyPet()?.coat || adoptionDefaults.secondary.coat"
+           :style="previewCoatStyle(ceremonyPet()?.species || secondaryAdoptionSpecies(), ceremonyPet()?.coat || adoptionDefaults.secondary.coat)">
         <svg viewBox="100 240 200 220" preserveAspectRatio="xMidYMid meet">
           <rect x="100" y="240" width="200" height="96" fill="var(--wall)"/>
           <rect x="100" y="336" width="200" height="124" fill="var(--floor)"/>
           <ellipse cx="200" cy="446" rx="98" ry="26" fill="var(--rug)"/>
-          <g x-html="catPreviewSvg()"></g>
+          <g x-html="petPreviewSvg(ceremonyPet()?.species || secondaryAdoptionSpecies())"></g>
         </svg>
       </div>
       <p class="tiny muted">{{VOICE_CEREMONY_DRAWER_NOTE}}</p>
@@ -675,7 +683,7 @@
               @click="ceremonyPick = q.id">
               <span class="quirk-order" x-text="ceremonyFirstQuirk() === q.id ? '1' : (ceremonyPick === q.id ? '2' : '+')" aria-hidden="true"></span>
               <span class="q-label" x-text="q.label"></span>
-              <span class="q-preview" x-text="quirkPreview(q.id, 'cat')"></span>
+              <span class="q-preview" x-text="quirkPreview(q.id, ceremonyPet()?.species || secondaryAdoptionSpecies())"></span>
             </button>
           </li>
         </template>
@@ -798,7 +806,7 @@
                     @click="secondQuirk = q.id">
                     <span class="quirk-order" x-text="secondQuirk === q.id ? '1' : '+'" aria-hidden="true"></span>
                     <span class="q-label" x-text="q.label"></span>
-                    <span class="q-preview" x-text="quirkPreview(q.id, 'cat')"></span>
+                    <span class="q-preview" x-text="quirkPreview(q.id, secondaryAdoptionSpecies())"></span>
                   </button>
                 </li>
               </template>

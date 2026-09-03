@@ -6,12 +6,27 @@ export const quirkMethods = {
       // more client-side duplicate. Labels are copy, served alongside;
       // colors live in style.css (data-coat selectors), so swatch and pet
       // can never drift apart.
-      return this._coatOptionsFor(this.pet?.species || "cat");
+      return this._coatOptionsFor(this.pet?.species || this.primaryAdoptionSpecies());
     },
 
     secondCoatOptions() {
-      // The demo household's second room is a cat too.
-      return this._coatOptionsFor("cat");
+      return this._coatOptionsFor(this.secondaryAdoptionSpecies());
+    },
+
+    primaryAdoptionSpecies() {
+      return this.adoptionDefaults?.primary?.species || "cat";
+    },
+
+    secondaryAdoptionSpecies() {
+      return this.adoptionDefaults?.secondary?.species || "cat";
+    },
+
+    speciesLabel(species) {
+      return (species || "pet").replaceAll("_", " ");
+    },
+
+    primaryPetLabel() {
+      return `your ${this.speciesLabel(this.primaryAdoptionSpecies())}`;
     },
 
     _coatOptionsFor(species) {
@@ -68,8 +83,9 @@ export const quirkMethods = {
       if (line == null) return pack.preview_fallback || "";
       if (typeof line === "string") return line;
       // Per-species preview dict: resolve by the asked-for (or current)
-      // species, falling back to the builtin cat, then any value present.
-      const which = species || this.pet?.species || "cat";
+      // species, falling back to the configured first pet, then the builtin
+      // cat, then any value present.
+      const which = species || this.pet?.species || this.primaryAdoptionSpecies();
       return line[which] ?? line.cat ?? Object.values(line)[0];
     },
 
@@ -79,15 +95,16 @@ export const quirkMethods = {
     },
 
     adoptPreviewLine() {
-      const name = (this.petName || "").trim() || "your cat";
+      const name = (this.petName || "").trim() || this.primaryPetLabel();
+      const species = this.speciesLabel(this.primaryAdoptionSpecies());
       const picks = this.pickedQuirks.map((id) => this.quirkPreview(id));
       if (picks.length === 0) {
         return `${name} is still just a shape in the room. choose the habits that will follow them home.`;
       }
       if (picks.length === 1) {
-        return `${name} already feels like the kind of cat who ${picks[0]}.`;
+        return `${name} already feels like the kind of ${species} who ${picks[0]}.`;
       }
-      return `${name} already feels like the kind of cat who ${picks[0]}, and ${picks[1]}.`;
+      return `${name} already feels like the kind of ${species} who ${picks[0]}, and ${picks[1]}.`;
     },
 
     selectedQuirkPreviewLines() {
@@ -150,7 +167,9 @@ export const quirkMethods = {
         }
         return `enter your name and this browser will join ${petName}'s room right away.`;
       }
-      if (this.openSignup) return "enter your name to begin. you'll name the cat next.";
+      if (this.openSignup) {
+        return `enter your name to begin. you'll name ${this.primaryPetLabel()} next.`;
+      }
       return "tap your saved link to come back in. if this is your first time here, ask the person who invited you for a fresh one.";
     },
 
@@ -168,7 +187,9 @@ export const quirkMethods = {
 
     landingNoteSecondary() {
       if (this.hasPendingInvite()) return "returning later: your recovery link will still rebind this device.";
-      if (this.openSignup) return "your recovery link will be generated once you name the cat.";
+      if (this.openSignup) {
+        return `your recovery link will be generated once you name ${this.primaryPetLabel()}.`;
+      }
       return "lost your link? ask your partner to send a fresh invite from their settings drawer.";
     },
 };

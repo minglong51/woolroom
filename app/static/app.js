@@ -24,7 +24,12 @@ function woolroom() {
       try {
         this.bookmarkAcknowledged = localStorage.getItem("woolroom_bookmark_ack") === "1";
       } catch (_) { /* private mode etc. */ }
-      await Promise.all([this.loadMe(), this.loadVoice(), this.loadPacks()]);
+      await Promise.all([
+        this.loadMe(),
+        this.loadVoice(),
+        this.loadPacks(),
+        this.loadAdoptionDefaults(),
+      ]);
       this._dismissBootSplash();
       this.startCanvas();
       if (this.pet) {

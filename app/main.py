@@ -32,11 +32,13 @@ from app.auth.site_access import (
     verify_site_password,
 )
 from app.config import settings
+from app.data.species import SPECIES_REGISTRY
 from app.data.voice import CLIENT_VOICE, INDEX_VOICE
 from app.packs import client_pack_assets, load_packs
 from app.scheduler.jobs import start_scheduler
 from app.storage.db import engine
 from app.storage.models import Base
+from woolroom.adoption import AdoptionDefaults
 from woolroom.auth import DEFAULT_AUTH_NAMESPACE, AuthNamespace
 from woolroom.overlay import CatalogOverlayProvider, EmptyCatalogOverlayProvider
 
@@ -71,6 +73,7 @@ GUEST_HTTP_ALLOWLIST = {
     "/api/guest/scene",
     "/api/me",
     "/api/packs",
+    "/api/adoption-defaults",
     "/api/voice",
 }
 
@@ -242,6 +245,9 @@ async def lifespan(app: FastAPI):
     # registries are frozen again afterwards. PACK_PATHS defaults to empty
     # (a no-op); any gate violation raises a named PackError and refuses boot.
     load_packs(settings.pack_paths)
+    app.state.adoption_defaults.validate(
+        {species: entry["coats"] for species, entry in SPECIES_REGISTRY.items()}
+    )
     # In prod the schema is owned by alembic (scripts/migrate.py runs before
     # uvicorn); create_all here would silently create tables alembic never
     # sees and drift the two apart.
@@ -272,6 +278,7 @@ def create_app(
     *,
     overlay_provider: CatalogOverlayProvider | None = None,
     auth_namespace: AuthNamespace | None = None,
+    adoption_defaults: AdoptionDefaults | None = None,
 ) -> FastAPI:
     app = FastAPI(title="woolroom", lifespan=lifespan)
     app.state.auth_failures = {}
@@ -280,6 +287,9 @@ def create_app(
     )
     app.state.catalog_overlay_provider = (
         overlay_provider if overlay_provider is not None else EmptyCatalogOverlayProvider()
+    )
+    app.state.adoption_defaults = (
+        adoption_defaults if adoption_defaults is not None else settings.adoption_defaults
     )
 
     @app.middleware("http")

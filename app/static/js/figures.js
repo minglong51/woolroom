@@ -188,12 +188,17 @@ export const figureMethods = {
     const p = paletteFor(species, this.pet?.coat, packs);
     return `--dog-body:${p.body}; --dog-belly:${p.belly}; --dog-point:${p.point}`;
   },
-  catPreviewSvg() {
-    // Landing + adopt + ceremony previews: the cat figure minus the
+  petPreviewSvg(species) {
+    // Landing + adopt + ceremony previews: the selected figure minus the
     // singleton ids — the live room's figure owns those even while its
     // section is hidden (x-show keeps the DOM), so every preview injects
     // the visitor variant.
-    return figureSvg("cat", { visitor: true });
+    return figureSvg(species || "cat", { visitor: true, packs: this.packs });
+  },
+  previewCoatStyle(species, coat) {
+    if (!species || PALETTES[species] || !this.packs?.[species]) return "";
+    const p = paletteFor(species, coat, this.packs);
+    return `--dog-body:${p.body}; --dog-belly:${p.belly}; --dog-point:${p.point}`;
   },
   visitorSvg() {
     // Compute-on-read, not just on transition: a boot mid-visit (payload

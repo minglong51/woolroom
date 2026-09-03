@@ -31,6 +31,10 @@ export function createState() {
     card: null,             // private site overlay for the active pet, if configured
     voice: null,            // client copy pack (GET /api/voice), set at boot
     packs: null,            // pack-species figure assets (GET /api/packs), set at boot
+    adoptionDefaults: {
+      primary: { species: "cat", coat: "marmalade" },
+      secondary: { species: "cat", coat: "marmalade" },
+    },
     quirks: [],
     pickedQuirks: [],
     quirkAudition: null,
