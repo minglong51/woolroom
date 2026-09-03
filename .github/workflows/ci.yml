@@ -143,7 +143,8 @@ jobs:
 
           assert Path(woolroom.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
           assert woolroom.__version__ == version("woolroom")
-          assert woolroom.PLUGIN_API_VERSION == 1
+          assert version("woolpack") == version("woolroom")
+          assert woolroom.PLUGIN_API_VERSION == 2
           assert PET_CARD_SCHEMA_VERSION == 1
           assert woolroom.create_app().state.catalog_overlay_provider is not None
           namespace = AuthNamespace(

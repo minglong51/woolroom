@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-09-03 (action cadence, direct-hosting, and release boundaries)
+**Refreshed:** 2026-09-03 (0.3.0 parity and release boundaries)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -383,7 +383,7 @@ code is right and this doc is stale.
 
 - Root `pyproject.toml` — the application uses the PEP 639-capable
   `setuptools>=77` backend floor and keeps its direct `PyYAML`
-  declaration, pins the compatible `woolpack==0.2.0`, packages `app.static`,
+  declaration, pins the compatible `woolpack==0.3.0`, packages `app.static`,
   the canonical dog/pig profile data under `app.packs`, and the public
   `woolroom` namespace, and declares
   `packages/woolpack` as a uv workspace member/source. `uv.lock` therefore
