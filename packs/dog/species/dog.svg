@@ -1,0 +1,56 @@
+<g>
+  <ellipse class="dog-contact" cx="200" cy="451" rx="67" ry="9" fill="rgba(76,57,43,.24)"/>
+  <g class="tailg">
+    <path class="coat" d="M244 399 C277 386 278 358 255 355 C270 368 264 382 239 385 Z" fill="#b9673f"/>
+    <path class="point" d="M255 355 C270 368 264 382 257 384 C266 369 262 362 255 355 Z" fill="#4b352c"/>
+  </g>
+  <ellipse class="coat dog-body" cx="200" cy="401" rx="58" ry="50" fill="#b9673f"/>
+  <ellipse class="cream dog-chest" cx="200" cy="404" rx="30" ry="38" fill="#ead0ac"/>
+  <ellipse class="coat" cx="161" cy="431" rx="18" ry="20" fill="#b9673f"/>
+  <ellipse class="coat" cx="239" cy="431" rx="18" ry="20" fill="#b9673f"/>
+  <ellipse class="cream" cx="163" cy="447" rx="20" ry="8" fill="#ead0ac"/>
+  <ellipse class="cream" cx="237" cy="447" rx="20" ry="8" fill="#ead0ac"/>
+  <g class="brushstreak" aria-hidden="true">
+    <path d="M157 385 q-10 12 -8 25 M169 377 q-11 13 -9 27 M231 377 q11 13 9 27"/>
+  </g>
+  <g class="paw-dream" aria-hidden="true">
+    <ellipse class="cream" cx="166" cy="447" rx="10" ry="4" fill="#ead0ac"/>
+  </g>
+  <g class="headg">
+    <g class="earg">
+      <path class="coat" d="M161 323 L166 278 L190 319 Z" fill="#b9673f"/>
+      <path class="coat" d="M239 323 L234 278 L210 319 Z" fill="#b9673f"/>
+      <path class="point" d="M168 310 L170 289 L183 314 Z" fill="#4b352c"/>
+      <path class="point" d="M232 310 L230 289 L217 314 Z" fill="#4b352c"/>
+    </g>
+    <ellipse class="coat" cx="200" cy="340" rx="46" ry="43" fill="#b9673f"/>
+    <path class="cream" d="M170 320 Q200 303 230 320 Q224 355 200 369 Q176 355 170 320 Z" fill="#ead0ac"/>
+    <g id="dog-eyes">
+      <g class="eyes-open">
+        <ellipse cx="184" cy="334" rx="3.2" ry="4.5" fill="#302823"/>
+        <ellipse cx="216" cy="334" rx="3.2" ry="4.5" fill="#302823"/>
+      </g>
+      <g class="eyes-happy">
+        <path d="M178 335 q6 6 12 0 M210 335 q6 6 12 0" stroke="#302823" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      </g>
+      <g class="eyes-side">
+        <ellipse cx="181" cy="334" rx="3.2" ry="4.5" fill="#302823"/>
+        <ellipse cx="213" cy="334" rx="3.2" ry="4.5" fill="#302823"/>
+      </g>
+      <g class="nap-eyes">
+        <path d="M178 335 q6 4 12 0 M210 335 q6 4 12 0" stroke="#302823" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      </g>
+      <g class="one-eye-eyes">
+        <path d="M178 335 q6 4 12 0" stroke="#302823" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+        <ellipse cx="216" cy="334" rx="3.2" ry="4.5" fill="#302823"/>
+      </g>
+    </g>
+    <ellipse class="cream" cx="200" cy="351" rx="20" ry="15" fill="#ead0ac"/>
+    <ellipse class="point" cx="200" cy="346" rx="7" ry="5" fill="#4b352c"/>
+    <path d="M200 351 q-1 8 -9 8 M200 351 q1 8 9 8" stroke="#4b352c" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  </g>
+  <g class="touchfibers" aria-hidden="true">
+    <path d="M148 369 l-11 -5 M145 384 l-12 0 M252 369 l11 -5 M255 384 l12 0"/>
+    <path d="M151 416 l-11 5 M249 416 l11 5"/>
+  </g>
+</g>
