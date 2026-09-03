@@ -48,7 +48,18 @@ export const wsMethods = {
       this.lastRealtimeAt = Date.now();
       this.wsState = "live";
       if (ev.type === "pet_state" && ev.pet) {
+        if (this.pet?.id && ev.pet.id !== this.pet.id) return;
+        const cardSubjectChanged = (
+          this.pet?.id === ev.pet.id
+          && (
+            this.pet?.species !== ev.pet.species
+            || this.pet?.coat !== ev.pet.coat
+          )
+        );
         this._applyPetState(ev.pet);
+        if (cardSubjectChanged) {
+          this._refreshActiveCard(ev.pet.id, ev.pet.species, ev.pet.coat);
+        }
         if (this.guest) return; // no invites to mint, no presence to track
         if ((this.pet?.participant_count || 0) >= 2) {
           this.inviteUrl = null;
@@ -152,6 +163,21 @@ export const wsMethods = {
         const data = await r.json();
         this.pets = data.pets || [];
       } catch (_) { /* the door repaints on the next full load */ }
+    },
+
+    async _refreshActiveCard(petId, species, coat) {
+      try {
+        const r = await fetch(`/api/card?pet=${encodeURIComponent(petId)}`, {
+          credentials: "same-origin",
+        });
+        if (!r.ok) return;
+        const data = await r.json();
+        if (
+          this.pet?.id === petId
+          && this.pet?.species === species
+          && this.pet?.coat === coat
+        ) this.card = data.card || null;
+      } catch (_) { /* mismatched cards already fall back to public art */ }
     },
 
     reloadForFreshVersion() {

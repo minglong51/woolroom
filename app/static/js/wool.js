@@ -14,7 +14,11 @@
 
 export const sceneMethods = {
   _petPronoun() {
-    // Pronoun is per-pet identity, served with the payload; default he.
+    if (
+      this.card?.species === this.pet?.species
+      && this.card?.coat === this.pet?.coat
+      && this.card?.pronoun
+    ) return this.card.pronoun;
     return this.pet?.pronoun || "he";
   },
 

@@ -39,6 +39,7 @@ from app.packs import client_pack_assets, load_packs
 from app.scheduler.jobs import start_scheduler
 from app.storage.db import engine
 from app.storage.models import Base
+from woolroom.overlay import CatalogOverlayProvider, EmptyCatalogOverlayProvider
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -65,7 +66,14 @@ def _compute_app_version() -> str:
 
 APP_VERSION = _compute_app_version()
 SITE_ACCESS_ALLOWLIST = {"/healthz", "/access", "/api/site-access", "/api/guest-access"}
-GUEST_HTTP_ALLOWLIST = {"/", "/api/me", "/api/guest/scene", "/api/voice", "/api/packs"}
+GUEST_HTTP_ALLOWLIST = {
+    "/",
+    "/api/card",
+    "/api/guest/scene",
+    "/api/me",
+    "/api/packs",
+    "/api/voice",
+}
 
 
 def _safe_access_next(value: str | None) -> str:
@@ -230,7 +238,7 @@ async def lifespan(app: FastAPI):
             "SITE_PASSWORD / guest access require a real SECRET_KEY (their "
             "cookies are signed with it); set SECRET_KEY to a random value"
         )
-    # Woolroom content packs (format v1): load + register species, phrase
+    # Woolroom public content packs (format v1): load + register species, phrase
     # overlays, quirks, and voice BEFORE any request is served; the
     # registries are frozen again afterwards. PACK_PATHS defaults to empty
     # (a no-op); any gate violation raises a named PackError and refuses boot.
@@ -244,17 +252,32 @@ async def lifespan(app: FastAPI):
             await conn.run_sync(_ensure_coat_column)
             await conn.run_sync(_ensure_demo_column)
             await conn.run_sync(_ensure_household_columns)
-    sched = start_scheduler()
+    provider = app.state.catalog_overlay_provider
+    sched = None
     try:
+        await provider.startup()
+        sched = start_scheduler()
         yield
     finally:
-        sched.shutdown(wait=False)
-        await engine.dispose()
+        try:
+            if sched is not None:
+                sched.shutdown(wait=False)
+        finally:
+            try:
+                await provider.shutdown()
+            finally:
+                await engine.dispose()
 
 
-def create_app() -> FastAPI:
+def create_app(
+    *,
+    overlay_provider: CatalogOverlayProvider | None = None,
+) -> FastAPI:
     app = FastAPI(title="woolroom", lifespan=lifespan)
     app.state.auth_failures = {}
+    app.state.catalog_overlay_provider = (
+        overlay_provider if overlay_provider is not None else EmptyCatalogOverlayProvider()
+    )
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):

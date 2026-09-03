@@ -8,8 +8,8 @@ through an allowlist sanitizer at load:
 - elements: only ALLOWED_ELEMENTS survive; anything else — including the
   named dangerous set (`script`, `foreignObject`, `image`, `use`, `a`) — is
   dropped WITH its subtree;
-- attributes: every `on*` event handler, every `href`/`xlink:href`, and any
-  `style` containing `url(` is stripped;
+- attributes: every `on*` event handler, Alpine `x-*`/`data-x-*` directive,
+  `href`/`xlink:href`, and URL-bearing or CSS-escaped value is stripped;
 - the root must be a single `<g>` (the pack contract's figure fragment) or
   `<svg>`; unparseable input is rejected;
 - DTD/entity declarations are refused before parse (entity expansion is a

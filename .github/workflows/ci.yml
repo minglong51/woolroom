@@ -22,8 +22,112 @@ jobs:
         run: uv sync --extra dev --locked
       - name: Tests (hermetic — no services, keys, or network)
         run: uv run pytest tests -q
-      - name: Ruff
-        run: uv run ruff check .
+      - name: Woolroom distribution and contract parity smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          smoke_root="$(mktemp -d)"
+          uv build --package woolpack --no-sources --clear --no-create-gitignore --out-dir "$smoke_root/pack-dist"
+          uv build --package woolroom --no-sources --clear --no-create-gitignore --out-dir "$smoke_root/core-dist"
+          uvx --from 'twine==7.0.0' twine check --strict "$smoke_root"/*-dist/*
+
+          core_wheel="$(find "$smoke_root/core-dist" -maxdepth 1 -name 'woolroom-*.whl' -print -quit)"
+          core_sdist="$(find "$smoke_root/core-dist" -maxdepth 1 -name 'woolroom-*.tar.gz' -print -quit)"
+          pack_wheel="$(find "$smoke_root/pack-dist" -maxdepth 1 -name 'woolpack-*.whl' -print -quit)"
+          test -n "$core_wheel"
+          test -n "$core_sdist"
+          test -n "$pack_wheel"
+
+          CORE_WHEEL="$core_wheel" PACK_WHEEL="$pack_wheel" uv run python - <<'PY'
+          import os
+          import tomllib
+          from email.parser import BytesParser
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          root = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+          pack = tomllib.loads(Path("packages/woolpack/pyproject.toml").read_text(encoding="utf-8"))
+          core_version = root["project"]["version"]
+          pack_version = pack["project"]["version"]
+          if core_version != pack_version:
+              raise SystemExit("woolroom and woolpack versions must move together")
+          if f"woolpack=={pack_version}" not in root["project"]["dependencies"]:
+              raise SystemExit("woolroom must pin the workspace woolpack version exactly")
+
+          with ZipFile(os.environ["CORE_WHEEL"]) as archive:
+              names = set(archive.namelist())
+              metadata_name = next(name for name in names if name.endswith(".dist-info/METADATA"))
+              metadata = BytesParser().parsebytes(archive.read(metadata_name))
+              required = {
+                  "woolroom/__init__.py",
+                  "woolroom/overlay.py",
+                  "woolroom/py.typed",
+                  "woolroom/migrations/env.py",
+                  "woolroom/migrations/script.py.mako",
+                  "woolroom/migrations/versions/48575234f9ca_initial_schema.py",
+                  "app/static/index.html",
+                  "app/static/app.js",
+                  "app/static/style.css",
+                  "app/static/js/figures.js",
+              }
+              missing = sorted(required - names)
+              if missing:
+                  raise SystemExit(f"woolroom wheel is missing runtime files: {missing}")
+              if metadata.get("Version") != core_version:
+                  raise SystemExit("woolroom wheel version has drifted from pyproject.toml")
+              if f"woolpack=={pack_version}" not in metadata.get_all("Requires-Dist", []):
+                  raise SystemExit("woolroom wheel lost its exact woolpack compatibility pin")
+
+          with ZipFile(os.environ["PACK_WHEEL"]) as archive:
+              names = set(archive.namelist())
+              metadata_name = next(name for name in names if name.endswith(".dist-info/METADATA"))
+              metadata = BytesParser().parsebytes(archive.read(metadata_name))
+              if "woolpack/cards.py" not in names:
+                  raise SystemExit("woolpack wheel is missing the pet-card contract")
+              if "woolpack/py.typed" not in names:
+                  raise SystemExit("woolpack wheel is missing its typing marker")
+              if metadata.get("Version") != pack_version:
+                  raise SystemExit("woolpack wheel version has drifted from pyproject.toml")
+          PY
+
+          for core_artifact in "$core_wheel" "$core_sdist"; do
+            install_root="$(mktemp -d)"
+            uv venv "$install_root/venv"
+            uv pip install --python "$install_root/venv/bin/python" "$pack_wheel" "$core_artifact"
+            (
+              cd "$install_root"
+              DATABASE_URL="sqlite+aiosqlite:///$install_root/distribution.db" \
+                SECRET_KEY="distribution-smoke-secret" \
+                ENV=dev \
+                "$install_root/venv/bin/python" - <<'PY'
+          import sqlite3
+          import sys
+          from pathlib import Path
+
+          from alembic import command
+          from alembic.config import Config
+          from importlib.metadata import version
+
+          import woolroom
+          from woolpack import PET_CARD_SCHEMA_VERSION
+
+          assert Path(woolroom.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
+          assert woolroom.__version__ == version("woolroom")
+          assert woolroom.PLUGIN_API_VERSION == 1
+          assert PET_CARD_SCHEMA_VERSION == 1
+          assert woolroom.create_app().state.catalog_overlay_provider is not None
+          migration_dir = woolroom.migration_path()
+          assert (migration_dir / "env.py").is_file()
+          config = Config()
+          config.set_main_option("script_location", str(migration_dir))
+          command.upgrade(config, "head")
+          db_path = Path(__import__("os").environ["DATABASE_URL"].removeprefix("sqlite+aiosqlite:///"))
+          with sqlite3.connect(db_path) as connection:
+              assert connection.execute("SELECT version_num FROM alembic_version").fetchone()
+          PY
+            )
+          done
       - name: Woolpack standalone boundary and distribution smoke
         shell: bash
         run: |
@@ -116,6 +220,8 @@ jobs:
         run: uv run python scripts/pack_lint.py packs/pebble --strict
       - name: Publish-gate denylist
         run: uv run python scripts/denylist_check.py
+      - name: Ruff
+        run: uv run ruff check .
 
   docker:
     runs-on: ubuntu-latest

@@ -2,8 +2,8 @@
 
 A pack is a directory of YAML + one SVG per species. **Packs are data, never
 code** — there is no scripting, no CSS, no runtime download. The loader reads
-local directories named by `PACK_PATHS` at boot, validates everything behind
-fail-closed gates, and refuses to boot on any violation.
+public local directories named by `PACK_PATHS` at boot, validates everything
+behind fail-closed gates, and refuses to boot on any violation.
 
 The contract-test suite IS the authoring tool: if `woolpack lint` is green and
 the `woolpack render` board looks right, the pack is ready for a Woolroom boot
@@ -40,7 +40,7 @@ the art). `woolpack lint` is the contract (exit 1 on ERROR; `--strict` also
 exits 1 on WARN — that is registry-CI mode).
 
 To boot the pack, clone Woolroom, run `uv sync --extra dev`, and point
-`PACK_PATHS` at the pack's absolute path:
+`PACK_PATHS` at the public pack's absolute path:
 
 ```sh
 PACK_PATHS=/absolute/path/to/packs/mole .venv/bin/uvicorn app.main:app
@@ -267,7 +267,10 @@ read, and standalone validation does not import or touch runtime registries.
 - **Geometry is hand-measured** against your art. `woolpack render`'s hitbox
   overlay is the source of truth for "does the ear zone sit on the ear"; lint
   only catches zones that cannot work.
-- **Boot-time, local dirs only.** Packs load from `PACK_PATHS` at process
-  start; there is no runtime install, no remote fetch, no hot reload.
+- **Public, boot-time, local dirs only.** Packs load from `PACK_PATHS` at
+  process start. Their voice and client assets are guest-readable
+  distribution content. Private deployment content belongs behind a trusted
+  card overlay provider, never in this registry. There is no runtime install,
+  remote fetch, or hot reload.
 - **One language axis (`language:`), default `en`** — only `en` content ships
   today; the field is the seam, not a promise.

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import html as _html
 import logging
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import select as _sa_select
@@ -35,12 +35,58 @@ from app.storage import repo
 from app.storage.db import SessionLocal
 from app.storage.models import Pet, User
 from app.time import iso_z, utc_now
+from woolroom.overlay import (
+    CatalogOverlayError,
+    GuestCardSubject,
+    OwnerCardSubject,
+    guest_card_payload,
+    owner_card_payload,
+)
 
 log = logging.getLogger(__name__)
 
 router = APIRouter()
 PENDING_INVITE_COOKIE = "woolroom_pending_invite"
 PENDING_INVITE_MAX_AGE = 60 * 60
+
+
+async def _owner_card(
+    request: Request,
+    user: User,
+    pet: Pet | None,
+    *,
+    coat: str | None = None,
+) -> dict | None:
+    if pet is None:
+        return None
+    try:
+        return await owner_card_payload(
+            request.app.state.catalog_overlay_provider,
+            OwnerCardSubject(
+                user_id=user.id,
+                pet_id=pet.id,
+                species=pet.species,
+                coat=coat if coat is not None else pet.coat,
+            ),
+        )
+    except CatalogOverlayError:
+        log.error("owner catalog overlay refused its card")
+        raise HTTPException(status_code=503, detail="site overlay unavailable") from None
+
+
+async def _guest_card(request: Request, pet: Pet) -> dict | None:
+    try:
+        return await guest_card_payload(
+            request.app.state.catalog_overlay_provider,
+            GuestCardSubject(
+                pet_id=pet.id,
+                species=pet.species,
+                coat=pet.coat,
+            ),
+        )
+    except CatalogOverlayError:
+        log.error("guest catalog overlay refused its card")
+        raise HTTPException(status_code=503, detail="guest card unavailable") from None
 
 
 # ────────── schemas ──────────
@@ -300,10 +346,12 @@ async def logout(resp: Response) -> dict:
 @router.get("/api/me")
 async def me(
     request: Request,
+    response: Response,
     pending_token: str | None = Cookie(default=None, alias=PENDING_INVITE_COOKIE),
     user: User | None = Depends(current_user_optional),
     session: AsyncSession = Depends(db),
 ) -> dict:
+    response.headers["Cache-Control"] = "private, no-store"
     guest = bool(getattr(request.state, "guest", False)) or (
         user is None
         and has_guest_access(request.cookies.get(GUEST_ACCESS_COOKIE))
@@ -315,6 +363,7 @@ async def me(
             "pending_invite": None,
             "open_signup": False,
             "guest": True,
+            "card": None,
         }
     pending_invite = None
     if pending_token:
@@ -340,11 +389,13 @@ async def me(
             # landing page shows the begin form on a fresh deployment.
             "open_signup": settings.open_signup or await repo.user_count(session) == 0,
             "guest": False,
+            "card": None,
         }
-    await repo.touch_user(session, user)
     pets = await repo.get_pets_for_user(session, user.id)
     pet = await repo.resolve_active_pet(session, user)
     pet_dict = await build_scene_payload(session, pet, current_user_id=user.id) if pet else None
+    card = await _owner_card(request, user, pet)
+    await repo.touch_user(session, user)
     return {
         "user": {
             "id": user.id,
@@ -364,7 +415,39 @@ async def me(
         "pending_invite": pending_invite,
         "open_signup": settings.open_signup,
         "guest": False,
+        "card": card,
     }
+
+
+@router.get("/api/card")
+async def active_card(
+    request: Request,
+    response: Response,
+    pet_id: Annotated[str, Query(alias="pet", min_length=1, max_length=32)],
+    user: Annotated[User | None, Depends(current_user_optional)],
+    session: Annotated[AsyncSession, Depends(db)],
+) -> dict:
+    response.headers["Cache-Control"] = "private, no-store"
+    guest = bool(getattr(request.state, "guest", False)) or (
+        user is None
+        and has_guest_access(request.cookies.get(GUEST_ACCESS_COOKIE))
+    )
+    if guest:
+        pet = await resolve_guest_pet(session)
+        if pet is None or pet.id != pet_id:
+            raise HTTPException(status_code=404, detail="guest card is not available")
+        return {"card": await _guest_card(request, pet)}
+
+    if user is not None:
+        participant = await repo.get_participant(session, pet_id, user.id)
+        if participant is None or participant.confirmed_adoption_at is None:
+            raise HTTPException(status_code=403, detail="not your room")
+        pet = await repo.get_pet(session, pet_id)
+        if pet is None:
+            raise HTTPException(status_code=404, detail="no such room")
+        return {"card": await _owner_card(request, user, pet)}
+
+    raise HTTPException(status_code=401, detail="guest access required")
 
 
 @router.get("/api/recovery-url")
@@ -409,6 +492,7 @@ async def _pet_summary(session: AsyncSession, pet: Pet, user: User) -> dict:
 @router.get("/api/guest/scene")
 async def guest_scene(
     request: Request,
+    response: Response,
     session: AsyncSession = Depends(db),
 ) -> dict:
     """The sanitized pet_state for guest visitors. Requires the guest cookie;
@@ -421,7 +505,12 @@ async def guest_scene(
             status_code=404,
             detail="guest demo cat is not available — seed it (scripts/seed_demo_pet.py) and pin GUEST_PET_ID",
         )
-    return {"guest": True, "pet": await build_guest_scene_payload(session, pet)}
+    response.headers["Cache-Control"] = "private, no-store"
+    return {
+        "guest": True,
+        "pet": await build_guest_scene_payload(session, pet),
+        "card": await _guest_card(request, pet),
+    }
 
 
 # ────────── adoption + invite ──────────
@@ -464,6 +553,8 @@ class RoomIn(BaseModel):
 @router.post("/api/room")
 async def switch_room(
     body: RoomIn,
+    request: Request,
+    response: Response,
     user: User = Depends(current_user),
     session: AsyncSession = Depends(db),
 ) -> dict:
@@ -478,11 +569,14 @@ async def switch_room(
     pet = await repo.get_pet(session, body.pet_id)
     if pet is None:
         raise HTTPException(status_code=404, detail="no such room")
+    card = await _owner_card(request, user, pet)
     user.last_room_pet_id = pet.id
     await session.commit()
+    response.headers["Cache-Control"] = "private, no-store"
     return {
         "ok": True,
         "pet": await build_scene_payload(session, pet, current_user_id=user.id),
+        "card": card,
     }
 
 
@@ -924,6 +1018,8 @@ class CoatIn(BaseModel):
 @router.put("/api/coat")
 async def update_coat(
     body: CoatIn,
+    request: Request,
+    response: Response,
     user: User = Depends(current_user),
     pet: Pet = Depends(current_pet),
     session: AsyncSession = Depends(db),
@@ -934,10 +1030,12 @@ async def update_coat(
     allowed = coats_for(pet.species)
     if body.coat not in allowed:
         raise HTTPException(status_code=422, detail=f"not a {pet.species} wool")
+    card = await _owner_card(request, user, pet, coat=body.coat)
     pet.coat = body.coat
     await session.commit()
     await broadcast_scene_payloads(session, pet)
-    return {"ok": True, "coat": pet.coat}
+    response.headers["Cache-Control"] = "private, no-store"
+    return {"ok": True, "coat": pet.coat, "card": card}
 
 
 class PinMomentIn(BaseModel):

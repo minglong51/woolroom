@@ -1,4 +1,4 @@
-"""Woolroom content-pack loader — pack format v1.
+"""Woolroom public content-pack loader — pack format v1.
 
 Loads species/quirk/phrase/voice content packs from LOCAL directories at
 boot (`app/main.py` lifespan, before any request is served), behind
@@ -29,6 +29,8 @@ subclass and refuses boot. A pack is validated fully BEFORE anything is
 registered, so a refused pack never leaves half-registered content behind
 (an earlier pack in PACK_PATHS stays registered — boot is refused anyway).
 
+Every pack loaded here is public distribution content. Private site adapters
+return bounded card projections instead of mutating these registries.
 Per-species art/geometry/palettes land in `PACK_ASSETS`; `LOADED_PACKS`
 records what booted. `client_pack_assets()` shapes `PACK_ASSETS` for
 `GET /api/packs`, the boot fetch figures.js resolves pack species from.

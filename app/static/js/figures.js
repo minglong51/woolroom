@@ -23,8 +23,20 @@ const PALETTES = {
 };
 
 export function paletteFor(species, coat, packs) {
-  const table = PALETTES[species] || packs?.[species]?.palettes || PALETTES.cat;
+  const table = packs?.[species]?.palettes || PALETTES[species] || PALETTES.cat;
   return table[coat] || Object.values(table)[0];
+}
+
+export function packsForPet(card, pet, packs) {
+  if (!card || !pet || card.species !== pet.species || card.coat !== pet.coat) return packs;
+  return {
+    [card.species]: {
+      svg: card.svg,
+      palettes: { [card.coat]: card.palette },
+      geometry: card.geometry,
+      pronoun: card.pronoun,
+    },
+  };
 }
 
 function catArt() {
@@ -123,7 +135,7 @@ export const SPECIES_GEOMETRY = {
 };
 
 export function touchZoneFor(species, x, y, packs) {
-  const g = SPECIES_GEOMETRY[species] || packs?.[species]?.geometry || SPECIES_GEOMETRY.cat;
+  const g = packs?.[species]?.geometry || SPECIES_GEOMETRY[species] || SPECIES_GEOMETRY.cat;
   if (y < g.earBelow) return "ear";
   if (y < g.headBelow) return "head";
   if (y > g.tail.yAbove && x > g.tail.xAbove) return "tail";
@@ -137,9 +149,7 @@ export function figureSvg(species, { visitor = false, packs = null } = {}) {
   // contract (.tailg/.headg/.earg/#dog-eyes/…), so the wool rig animates it
   // unchanged — and the same singleton-id rule, so the visitor deidentify
   // works on it verbatim.
-  const art =
-    species === "cat" ? catArt()
-    : packs?.[species]?.svg || catArt();
+  const art = packs?.[species]?.svg || catArt();
   return visitor ? deidentify(art) : art;
 }
 
@@ -163,7 +173,8 @@ export function visitorMarkup(species, coat, packs) {
 // /api/packs fetch, null when the deploy carries no packs).
 export const figureMethods = {
   petFigureSvg() {
-    return figureSvg(this.pet?.species || "cat", { packs: this.packs });
+    const packs = packsForPet(this.card, this.pet, this.packs);
+    return figureSvg(this.pet?.species || "cat", { packs });
   },
   figureCoatStyle() {
     // Pack species carry no data-coat rules in style.css (those are written
@@ -172,8 +183,9 @@ export const figureMethods = {
     // Builtin cat (and the unknown-species cat fallback) return "": the
     // data-coat rules keep owning their recolor, unchanged.
     const species = this.pet?.species;
-    if (!species || PALETTES[species] || !this.packs?.[species]) return "";
-    const p = paletteFor(species, this.pet?.coat, this.packs);
+    const packs = packsForPet(this.card, this.pet, this.packs);
+    if (!species || (!this.card && PALETTES[species]) || !packs?.[species]) return "";
+    const p = paletteFor(species, this.pet?.coat, packs);
     return `--dog-body:${p.body}; --dog-belly:${p.belly}; --dog-point:${p.point}`;
   },
   catPreviewSvg() {
@@ -199,6 +211,6 @@ export const figureMethods = {
     return visitorMarkup(species, coat, this.packs);
   },
   figureTouchZone(species, x, y) {
-    return touchZoneFor(species, x, y, this.packs);
+    return touchZoneFor(species, x, y, packsForPet(this.card, this.pet, this.packs));
   },
 };

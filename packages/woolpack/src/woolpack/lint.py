@@ -51,7 +51,7 @@ from pathlib import Path
 from typing import Any
 
 from woolpack.contract import PackEnvironment
-from woolpack.sanitize import ALLOWED_ELEMENTS, _local
+from woolpack.sanitize import ALLOWED_ELEMENTS, _local, _safe_attribute
 from woolpack.validation import VALENCE_BUCKETS, PackError, validate_pack
 
 PASS = "PASS"
@@ -138,12 +138,8 @@ def _sanitize_drops(text: str) -> tuple[list[str], list[str]]:
             return
         for key, value in el.attrib.items():
             name = _local(key)
-            if name.startswith("on"):
+            if not _safe_attribute(name, value):
                 stripped.append(f"{name} on <{tag}>")
-            elif name == "href":
-                stripped.append(f"href on <{tag}>")
-            elif name == "style" and "url(" in value.lower().replace(" ", ""):
-                stripped.append(f"style url(...) on <{tag}>")
         for child in el:
             walk(child)
 

@@ -39,7 +39,9 @@ does not belong in the suite.
   `pack_new.py`, `pack_lint.py`, `pack_render.py`,
   `migrate.py`, `eval.py`, `seed_demo_pet.py`, `denylist_check.py`,
   `docker-entrypoint.sh`.
-- `migrations/` — alembic. The only thing that touches schema in prod.
+- `woolroom/` — the public composition API, overlay contract, and packaged
+  Alembic migrations. The migrations are the only thing that touches schema
+  in prod.
 - `docs/` — `packs.md` (authoring guide), `design/` (HLD/LLD contract).
 - `tests/` — pytest suite, mirrored loosely against `app/`.
 
@@ -101,7 +103,7 @@ coverage.
 
 ```design-doc-map
 app/         -> docs/design/HLD.md docs/design/LLD.md
-migrations/  -> docs/design/LLD.md
+woolroom/    -> docs/design/HLD.md docs/design/LLD.md
 packs/       -> docs/design/HLD.md docs/design/LLD.md
 packages/woolpack/ -> docs/design/HLD.md docs/design/LLD.md
 scripts/     -> docs/design/HLD.md docs/design/LLD.md

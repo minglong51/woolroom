@@ -28,6 +28,7 @@ export function createState() {
     pets: [],               // every room of the household, founding first
     activePetId: null,
     guest: false,           // read-only visitor — no session, watch only
+    card: null,             // private site overlay for the active pet, if configured
     voice: null,            // client copy pack (GET /api/voice), set at boot
     packs: null,            // pack-species figure assets (GET /api/packs), set at boot
     quirks: [],

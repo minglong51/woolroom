@@ -1,6 +1,6 @@
 # woolroom — High-Level Design
 
-**Refreshed:** 2026-08-27 (woolpack Trusted Publishing; standalone woolpack workspace 2026-08-26)
+**Refreshed:** 2026-09-02 (installable core and private card-overlay boundary)
 
 woolroom is a self-hostable shared ambient pet: one quiet animal in a small
 room, kept by two people. A rule-driven brain (mood drift, memory, seeded
@@ -18,7 +18,11 @@ depends on its local `packages/woolpack/` member: an independently buildable
 authoring and validation distribution that owns the data-only pack contract.
 `woolpack` has no `app.*` dependency; the application supplies its current
 engine vocabulary as a `PackEnvironment`, then registers the validated data
-through its thin runtime adapter.
+through its thin runtime adapter. The root wheel exposes the stable
+`woolroom.create_app()` composition API, packages the browser and Alembic
+resources, and accepts one trusted `CatalogOverlayProvider`. Stock direct
+hosting uses the default empty provider; a private consumer such as Paws can
+install an adapter without copying the core application.
 
 ## Architecture
 
@@ -44,10 +48,14 @@ in-process.
                          │  scheduler/: mood drift, daily outing, … │
                          │  storage/ (SQLAlchemy) ──▶ SQLite file   │
                          │                                          │
-                         │  packs/loader ◀── PACK_PATHS (boot only) │
+                         │  packs/loader ◀── public PACK_PATHS      │
                          │       │                                  │
                          │       └──▶ woolpack.validate_pack        │
-                         │   register validated data · serve assets │
+                         │   register validated public data/assets  │
+                         │                                          │
+ private site adapter ──▶│  CatalogOverlayProvider                 │
+ (trusted code / DB)     │   owner_card · guest_card               │
+                         │       └──▶ pet-bound PetCardV1 allowlist │
                          └──────────────────────────────────────────┘
 
  pack author ──▶ woolpack new/render/lint ──▶ YAML + SVG pack
@@ -77,17 +85,25 @@ in-process.
 - **Data** (`app/data/`) — content modules: the builtin cat's phrasebook,
   voice/client copy, species registry, quirk catalog. Plain tables; mutated
   only at boot by the pack loader, then frozen.
-- **Pack integration** (`app/packs/`, `packs/`) — the application adapter
+- **Public pack integration** (`app/packs/`, `packs/`) — the application adapter
   derives a `PackEnvironment` from the live engine vocabularies, asks
   `woolpack` to validate each `PACK_PATHS` directory, then alone mutates the
   runtime species, phrase, quirk, voice, and client-asset registries. The
-  shipped Pebble pack remains the repository's runtime example.
+  shipped Pebble pack remains the repository's runtime example. `PACK_PATHS`
+  is public by contract: its merged voice and assets remain static,
+  guest-readable distribution content.
+- **Composition API** (`woolroom/`) — stable public import surface,
+  provider lifecycle/subjects, the default empty provider, and packaged
+  Alembic revisions. A trusted provider may own database access but receives
+  only the active owner or pinned-guest subject and returns one card-shaped
+  projection; it never receives or mutates the public registries.
 - **Woolpack distribution** (`packages/woolpack/`) — standalone pack-format
   v1 validator, SVG sanitizer, authoring lint, static render board, and
-  scaffold CLI (`woolpack new|render|lint`). Its wheel packages the Pebble
+  scaffold CLI (`woolpack new|render|lint`), plus the versioned `PetCardV1`
+  browser-projection contract. Its wheel packages the Pebble
   scaffold and the room CSS needed to author without a woolroom checkout.
   Data in, reports/HTML/data out; it never imports the application.
-- **Storage** (`app/storage/`, `migrations/`) — SQLAlchemy async over
+- **Storage** (`app/storage/`, `woolroom/migrations/`) — SQLAlchemy async over
   aiosqlite; alembic owns schema in deployed environments.
 - **Scheduler** (`app/scheduler/`) — APScheduler in-process jobs: mood
   drift, daily outing, anniversary, busy-mode expiry, demo self-play.
@@ -104,6 +120,16 @@ in-process.
   There is no runtime install, remote fetch, or hot reload — every byte served
   is a byte the host chose. A known-bad-pack kill-list is a designed loader
   gate that lands before any remote-install path exists.
+- **Private overlay boundary.** `PACK_PATHS` never carries private site
+  content. Deployment-installed provider code may own a database, but the
+  core passes it only a narrow subject and revalidates its result as the exact
+  versioned `PetCardV1` field set inside a `BoundPetCard`; the binding is
+  checked against the requested pet and stripped before serialization. Owner
+  and guest cards travel only in dynamic `private, no-store` envelopes. Guest
+  lookup starts from the pinned production demo pet and requires the returned
+  pet, species, and coat to match; provider errors and extra fields fail
+  closed. Private cards never enter
+  `CLIENT_VOICE`, `PACK_ASSETS`, `/api/voice`, or `/api/packs`.
 - **Auth gates.** Signed-cookie sessions (no passwords); invite-only
   pairing; optional outer site password for private deployments; read-only
   guest mode resolves only one pinned demo pet with private fields stripped
@@ -132,8 +158,12 @@ object-storage secrets exist (else plain uvicorn). `fly.toml` +
 to the host's own bucket. All runtime configuration is environment variables
 (`app/config.py`, documented in `.env.example`).
 
-CI installs the locked workspace and separately builds both `woolpack`
-distribution formats.
+CI installs the locked workspace and separately builds both `woolroom` and
+`woolpack` distribution formats.
+The core wheel smoke pins root/package/dependency version parity, requires the
+static client and Alembic resources in the artifact, installs wheel and source
+artifacts beside the exact Woolpack wheel, imports the public composition API,
+and upgrades a synthetic SQLite database from packaged migrations.
 The standalone smoke checks that packaged resources match the canonical
 in-repo example/style, package modules contain no `app.*` imports, default and
 engine-derived `PackEnvironment` values agree, and isolated wheel and source
@@ -145,5 +175,5 @@ uploads them to PyPI.
 ## What this design refuses
 
 Gamification surfaces · accounts/marketplace/payments/hosted service · code
-in packs · generic (uncapped or anonymous) N-human rooms · runtime pack
-install in v1. These are load-bearing, not backlog.
+or private site content in `PACK_PATHS` · generic (uncapped or anonymous)
+N-human rooms · runtime pack install in v1. These are load-bearing, not backlog.

@@ -4,6 +4,7 @@ import re
 import xml.etree.ElementTree as ET
 
 _DTD_MARKER = re.compile(r"<!(?:DOCTYPE|ENTITY)", re.IGNORECASE)
+_CSS_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
 
 ALLOWED_ELEMENTS = frozenset(
     {
@@ -34,6 +35,17 @@ def _local(name: object) -> str:
     return name.rsplit("}", 1)[-1].lower()
 
 
+def _safe_attribute(name: str, value: str) -> bool:
+    if (
+        name.startswith(("on", "x-", "data-x-"))
+        or name == "href"
+        or "\\" in value
+    ):
+        return False
+    normalized = "".join(_CSS_COMMENT.sub("", value).lower().split())
+    return "url(" not in normalized
+
+
 def _clean_element(el: ET.Element) -> ET.Element | None:
     tag = _local(el.tag)
     if tag not in ALLOWED_ELEMENTS:
@@ -43,11 +55,7 @@ def _clean_element(el: ET.Element) -> ET.Element | None:
         out.text = el.text
     for key, value in el.attrib.items():
         name = _local(key)
-        if name.startswith("on"):
-            continue
-        if name == "href":
-            continue
-        if name == "style" and "url(" in value.lower().replace(" ", ""):
+        if not _safe_attribute(name, value):
             continue
         out.set(name, value)
     for child in el:
