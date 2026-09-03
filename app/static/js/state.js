@@ -87,6 +87,8 @@ export function createState() {
     partnerAbsenceMinutes: null,
     partnerArrivedFlash: false,
     _partnerArrivedTimer: null,
+    guestNoticeFlash: false,
+    _guestNoticeTimer: null,
     currentHour: new Date().getHours() + new Date().getMinutes() / 60,
     _hourTimer: null,
     bootVersion: null,

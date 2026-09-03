@@ -159,6 +159,13 @@ export const apiMethods = {
       }
     },
 
+    _settleOwnerTransition() {
+      requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "auto" }));
+      if (!this.pet || this.guest) return;
+      void Promise.all([this._woolLoadShelf(), this._woolLoadNotes()]);
+      this._maybeStartOnboarding();
+    },
+
     async loadMe(allowPendingJoin = true) {
       const r = await fetch("/api/me", { credentials: "same-origin" });
       const data = await r.json();
@@ -253,6 +260,7 @@ export const apiMethods = {
           this.status = data.pending_invite_error;
         }
         await this.loadMe();
+        this._settleOwnerTransition();
       } catch (e) {
         this.status = String(e.message || e || "could not start. try again?");
       } finally {
@@ -275,6 +283,7 @@ export const apiMethods = {
         }
         await this.loadMe();
         this.connectWs();
+        this._settleOwnerTransition();
       } catch (e) {
         this.status = String(e.message || e || "adopt failed");
       } finally {

@@ -253,23 +253,25 @@
   </section>
 
   <!-- The wool room. -->
-  <section x-show="view === 'scene'" x-cloak class="scene" :class="{ composing: showComposer }">
+  <section x-show="view === 'scene'" x-cloak class="scene"
+           :class="{ composing: showComposer, 'guest-scene': guest }">
 
     <header class="scene-header">
       <div class="identity-block">
-        <span class="name" x-text="pet?.name ?? ''"></span>
+        <h1 class="name" x-text="pet?.name ?? ''"></h1>
         <p class="household-line muted" x-text="householdLine()"></p>
       </div>
       <div class="header-side">
         <!-- Healthy systems don't announce themselves: this pill only
              appears while the connection is actually settling. -->
         <span class="realtime-pill" x-show="wsState !== 'live'" :class="realtimeToneClass()" x-text="realtimeLabel()"></span>
-        <span class="guest-badge tiny muted" x-show="guest" x-cloak>watching as a guest — ask the humans for an invite</span>
+        <span class="guest-badge tiny muted" x-show="guest" x-cloak>read-only demo · real homes stay private</span>
         <button class="ghost menu-button sound-toggle" @click="toggleSound()"
                 :aria-pressed="soundOn"
                 x-text="soundOn ? 'sound on' : 'sound off'"></button>
         <template x-if="!guest">
-          <button class="ghost menu-button" @click="openMemory()">memory</button>
+          <button class="ghost menu-button" @click="openMemory()" aria-controls="room-journal"
+                  :aria-expanded="showMemory">room journal</button>
         </template>
         <template x-if="!guest">
           <button class="ghost menu-button" @click="showSettings = !showSettings">menu</button>
@@ -292,7 +294,7 @@
            state: a playful MOOD shows in the hop gait, not permanent squint -->
       <div id="wool-scene" data-time="day" :data-coat="pet?.coat || 'red'"
            :data-species="pet?.species || 'cat'"
-           :class="{ ...woolTraceClasses(), ...woolPoseClasses(), [`state-${animState}`]: true, sleeping: animState === 'sleeping', 'partner-arrived': partnerArrivedFlash, hungry: !!pet?.hungry && !guest }"
+           :class="{ ...woolTraceClasses(), ...woolPoseClasses(), [`state-${animState}`]: true, sleeping: animState === 'sleeping', 'partner-arrived': partnerArrivedFlash, 'guest-notice': guestNoticeFlash, hungry: !!pet?.hungry && !guest }"
            :style="dogRigStyle() + '; ' + figureCoatStyle() + '; ' + woolTraceStyle()">
         <svg viewBox="0 0 400 520" preserveAspectRatio="xMidYMid slice">
           <defs>
@@ -337,11 +339,11 @@
             <path d="M124 166 h16 M132 158 v16" stroke="#f4ecdc" stroke-width=".8" opacity=".6"/>
           </g>
           <!-- bright-thing-is-a-promise: the sun/moon respond with the hour -->
-          <g class="sunbtn hotspot" @click="woolSkyTap()" @keydown.enter.prevent="woolSkyTap()" @keydown.space.prevent="woolSkyTap()" role="button" tabindex="0" aria-label="the sun">
+          <g class="sunbtn hotspot" @click="woolSkyTap()" @keydown.enter.prevent="woolSkyTap()" @keydown.space.prevent="woolSkyTap()" role="button" :tabindex="guest ? -1 : 0" :aria-disabled="guest" aria-label="the sun">
             <circle cx="170" cy="76" r="19" fill="#e8dcc4" stroke="#c4b493" stroke-width="2.2"/>
             <circle cx="164" cy="71" r="2.2" fill="#a4977e"/><circle cx="176" cy="71" r="2.2" fill="#a4977e"/>
             <circle cx="164" cy="82" r="2.2" fill="#a4977e"/><circle cx="176" cy="82" r="2.2" fill="#a4977e"/></g>
-          <g class="moonbtn hotspot" @click="woolSkyTap()" @keydown.enter.prevent="woolSkyTap()" @keydown.space.prevent="woolSkyTap()" role="button" tabindex="0" aria-label="the moon">
+          <g class="moonbtn hotspot" @click="woolSkyTap()" @keydown.enter.prevent="woolSkyTap()" @keydown.space.prevent="woolSkyTap()" role="button" :tabindex="guest ? -1 : 0" :aria-disabled="guest" aria-label="the moon">
             <circle cx="170" cy="76" r="12" fill="#e8e2d2" stroke="#c4b89d" stroke-width="2"/></g>
 
           <!-- shelf: up to three kept moments (real, from /api/memory) -->
@@ -401,8 +403,37 @@
                   x-text="(partnerDisplayNames()[0] || 'them').toLowerCase()"></text>
           </g>
 
+          <g class="guest-room-story" x-show="guest" x-cloak aria-hidden="true">
+            <ellipse class="guest-lamp-pool" cx="52" cy="400" rx="76" ry="52" fill="url(#lamppool)"/>
+            <g class="guest-lantern guest-lantern-near">
+              <rect x="32" y="290" width="42" height="56" rx="4" fill="#efe4cb"/>
+              <circle cx="53" cy="318" r="15" fill="#ffcf8f"/>
+              <rect x="32" y="290" width="42" height="56" rx="4" fill="none" stroke="#5a4636" stroke-width="2.8"/>
+              <path d="M53 290 v56 M32 318 h42" stroke="#5a4636" stroke-width="2.2"/>
+              <rect x="28" y="284" width="50" height="7" rx="3" fill="#5a4636"/>
+              <rect x="35" y="346" width="6" height="7" fill="#5a4636"/>
+              <rect x="65" y="346" width="6" height="7" fill="#5a4636"/>
+            </g>
+            <ellipse class="guest-lamp-pool guest-lamp-pool-far" cx="348" cy="400" rx="76" ry="52" fill="url(#lamppool)"/>
+            <g class="guest-lantern guest-lantern-far">
+              <rect x="328" y="290" width="42" height="56" rx="4" fill="#efe4cb"/>
+              <circle cx="349" cy="318" r="15" fill="#ffcf8f"/>
+              <rect x="328" y="290" width="42" height="56" rx="4" fill="none" stroke="#5a4636" stroke-width="2.8"/>
+              <path d="M349 290 v56 M328 318 h42" stroke="#5a4636" stroke-width="2.2"/>
+              <rect x="324" y="284" width="50" height="7" rx="3" fill="#5a4636"/>
+              <rect x="331" y="346" width="6" height="7" fill="#5a4636"/>
+              <rect x="361" y="346" width="6" height="7" fill="#5a4636"/>
+            </g>
+            <g class="guest-postcard" transform="translate(302 128) rotate(3)">
+              <rect width="58" height="40" rx="3" fill="#e8dcc4" stroke="#b9aa8e" stroke-width="1.4"/>
+              <circle cx="13" cy="14" r="5" fill="#c9a76a" opacity=".64"/>
+              <path d="M25 12 h23 M25 19 h18 M10 29 h38" stroke="#9a8a72" stroke-width="1.4" opacity=".65"/>
+            </g>
+            <ellipse class="guest-warm-trace" cx="126" cy="420" rx="42" ry="15" fill="#f4b96a" opacity=".14"/>
+          </g>
+
           <!-- leash by the door edge: tap = walk -->
-          <g class="leashg hotspot" @click="woolWalk()" @keydown.enter.prevent="woolWalk()" @keydown.space.prevent="woolWalk()" role="button" tabindex="0" :aria-disabled="guest" aria-label="the leash — tap to walk">
+          <g class="leashg hotspot" @click="woolWalk()" @keydown.enter.prevent="woolWalk()" @keydown.space.prevent="woolWalk()" role="button" :tabindex="guest ? -1 : 0" :aria-disabled="guest" aria-label="the leash — tap to walk">
             <circle cx="386" cy="252" r="12" fill="transparent"/>
             <circle cx="386" cy="246" r="5" fill="none" stroke="#8a7f6b" stroke-width="2.4"/>
             <path d="M386 251 q-2 20 0 38" stroke="#8a7f6b" stroke-width="3" fill="none" stroke-linecap="round"/>
@@ -462,7 +493,7 @@
           <!-- bowl: tap = feed; kibble doubles as the partner's trace.
                When the pet is hungry the bowl glows softly and dashed
                kibble outlines ask to be filled. -->
-          <g class="bowlg hotspot" @click="woolFeed()" @keydown.enter.prevent="woolFeed()" @keydown.space.prevent="woolFeed()" role="button" tabindex="0" :aria-disabled="guest" aria-label="the bowl — tap to feed">
+          <g class="bowlg hotspot" @click="woolFeed()" @keydown.enter.prevent="woolFeed()" @keydown.space.prevent="woolFeed()" role="button" :tabindex="guest ? -1 : 0" :aria-disabled="guest" aria-label="the bowl — tap to feed">
             <circle cx="76" cy="464" r="28" fill="transparent"/>
             <ellipse class="bowlglow" cx="76" cy="462" rx="34" ry="18" fill="url(#lamppool)"/>
             <ellipse cx="76" cy="464" rx="24" ry="9" fill="#8a715c"/>
@@ -479,7 +510,7 @@
           </g>
 
           <!-- ball: tap = play -->
-          <g id="roomball" class="ballg hotspot" @click="woolPlay()" @keydown.enter.prevent="woolPlay()" @keydown.space.prevent="woolPlay()" role="button" tabindex="0" :aria-disabled="guest" aria-label="the ball — tap to play">
+          <g id="roomball" class="ballg hotspot" @click="woolPlay()" @keydown.enter.prevent="woolPlay()" @keydown.space.prevent="woolPlay()" role="button" :tabindex="guest ? -1 : 0" :aria-disabled="guest" aria-label="the ball — tap to play">
             <circle cx="310" cy="460" r="18" fill="transparent"/>
             <circle cx="310" cy="460" r="12" fill="#e8dcc4" stroke="#c4b493" stroke-width="1.6"/>
             <path d="M301 454 q9 6 18 0 M301 466 q9 -6 18 0" stroke="#b3a58e" stroke-width="1.4" fill="none"/>
@@ -541,7 +572,7 @@
               </g>
             </g>
             <rect id="dogzone" x="128" y="270" width="144" height="188" fill="transparent"
-                  tabindex="0" role="button" :aria-disabled="guest"
+                  :tabindex="guest ? -1 : 0" role="button" :aria-disabled="guest"
                   :aria-label="(pet?.name || 'the pet') + ' — stroke or tap to pet, double-tap for the zoomies'"/>
           </g>
 
@@ -562,8 +593,8 @@
             <rect width="400" height="520" fill="#ffb56a" opacity=".18" style="mix-blend-mode:soft-light"/>
           </g>
           <g class="light-night lightlayer">
-            <rect width="400" height="520" fill="#25304d" opacity=".5" style="mix-blend-mode:multiply"/>
-            <rect width="400" height="520" fill="#1c2740" opacity=".22"/>
+            <rect width="400" height="520" fill="#25304d" opacity=".34" style="mix-blend-mode:multiply"/>
+            <rect width="400" height="520" fill="#1c2740" opacity=".12"/>
             <ellipse cx="58" cy="410" rx="150" ry="110" fill="url(#lamppool)"/>
             <ellipse class="night-partner-pool" :data-state="woolPartnerLampState()"
                      cx="342" cy="410" rx="150" ry="110" fill="url(#lamppool)"/>
@@ -574,7 +605,8 @@
         <!-- speech as breath: the pet's line floats in the room, then fades.
              History stays reachable in the memory drawer. aria-live: the
              pet's speech is the product's core output — announce it. -->
-        <p class="utter" aria-live="polite" :class="{ show: woolLine || lastResponse }"
+        <p class="utter" :class="{ show: woolLine || lastResponse }" role="status"
+           aria-live="polite" aria-atomic="true"
            x-text="woolLine || (lastResponse ? lastResponse.text : '')"></p>
 
         <button type="button" class="whisper" x-show="!showComposer && !guest"
@@ -585,22 +617,50 @@
           <button class="ghost send-quiet" :disabled="!messageText.trim() || !!actingAction">send</button>
           <button type="button" class="ghost composer-close" @click="showComposer = false" aria-label="close">×</button>
         </form>
+
+        <div class="glass-tap-wrap" x-show="guest" x-cloak>
+          <button id="glass-tap" class="glass-tap" type="button"
+                  aria-describedby="glass-tap-note"
+                  @click.prevent.stop="_guestToast()">tap the glass</button>
+          <p id="glass-tap-note" class="glass-tap-note tiny">a local gesture on this screen — nothing is posted or saved</p>
+        </div>
       </div>
 
-      <!-- ambient narration lives under the frame, museum-placard style —
-           legible text never runs across the furniture -->
-      <p class="room-caption" x-show="coupleRhythmLine() || stagePresenceLine()"
-         x-text="coupleRhythmLine() || stagePresenceLine()"></p>
+      <details class="room-controls" x-show="!guest">
+        <summary class="room-controls-summary">room controls</summary>
+        <div class="verb-row room-verbs" role="group" aria-label="actions">
+          <button class="verb" :disabled="!!actingAction" @click="woolGreet()">hello</button>
+          <button class="verb" :disabled="!!actingAction" @click="_woolResolveTouch(30, 380, 150)">pet</button>
+          <button class="verb" :disabled="!!actingAction" @click="woolFeed()">feed</button>
+          <button class="verb" :disabled="!!actingAction" @click="woolWalk()">walk</button>
+          <button class="verb" :disabled="!!actingAction" @click="woolPlay()">play</button>
+          <button class="verb" :disabled="!!actingAction" @click="woolCall()">call</button>
+        </div>
+      </details>
+      </div>
 
-      <div class="verb-row room-verbs" role="group" aria-label="actions" x-show="!guest">
-        <button class="verb" :disabled="!!actingAction" @click="woolGreet()">hello</button>
-        <button class="verb" :disabled="!!actingAction" @click="_woolResolveTouch(30, 380, 150)">pet</button>
-        <button class="verb" :disabled="!!actingAction" @click="woolFeed()">feed</button>
-        <button class="verb" :disabled="!!actingAction" @click="woolWalk()">walk</button>
-        <button class="verb" :disabled="!!actingAction" @click="woolPlay()">play</button>
-        <button class="verb" :disabled="!!actingAction" @click="woolCall()">call</button>
-      </div>
-      </div>
+      <aside class="scene-rail">
+        <div class="rail-story" x-show="guest" x-cloak>
+          <p class="rail-kicker tiny muted">the demo window</p>
+          <h2 class="rail-title"><span x-text="pet?.name || 'the pet'"></span> has a life between visits</h2>
+          <p class="rail-copy muted">the motion is live. the household story is fictional. real rooms keep their lamps, traces, and journal private.</p>
+          <div class="guest-public-story">
+            <p class="rail-kicker tiny muted" x-text="guestPublicStory().kicker"></p>
+            <p class="guest-public-story-line" x-text="guestPublicStory().line"></p>
+          </div>
+          <p class="rail-copy muted">this is a tiny home you can run yourself and share with one person.</p>
+        </div>
+        <div class="rail-story rail-story-owner" x-show="!guest" x-cloak>
+          <p class="rail-kicker tiny muted">this room, kept between you</p>
+          <h2 class="rail-title">the room remembers quietly</h2>
+          <p class="rail-copy muted">two lamps, folded notes, traces in the wool, and a journal only the two of you keep.</p>
+        </div>
+        <div class="rail-narration" x-show="coupleRhythmLine() || stagePresenceLine()" x-cloak>
+          <p class="rail-kicker tiny muted" x-show="!guest"
+             x-text="presenceMode() === 'awaiting' ? 'the room is becoming' : presenceMode() === 'together' ? 'both lamps are lit' : 'while you were away'"></p>
+          <p class="rail-kicker tiny muted" x-show="guest" x-cloak>meanwhile, inside</p>
+          <p class="room-caption" x-text="coupleRhythmLine() || stagePresenceLine()"></p>
+        </div>
 
       <!-- the exception lane: quiet cards that exist only when needed -->
       <div class="scene-sidecar"
@@ -647,6 +707,7 @@
         </div>
 
       </div>
+      </aside>
     </div>
 
     <!-- Backdrop dims the page behind any open drawer. -->
@@ -696,9 +757,11 @@
     </aside>
 
     <!-- Memory drawer. -->
-    <aside class="drawer" x-show="showMemory" @click.outside="showMemory = false" x-cloak>
+    <aside id="room-journal" class="drawer" x-show="showMemory" @click.outside="showMemory = false" x-cloak
+           aria-labelledby="room-journal-title">
       <button class="drawer-close" @click="showMemory = false" aria-label="close">×</button>
-      <h3>what we've kept</h3>
+      <h3 id="room-journal-title">the room journal</h3>
+      <p class="tiny muted journal-note">kept between the two of you — it doesn't leave this home.</p>
       <p class="tiny muted" x-show="pet?.origin_line" x-text="pet?.origin_line"></p>
       <p class="tiny muted" x-show="memory">
         <span x-text="memory?.pet_name || 'the pet'"></span> has shared this room with you for

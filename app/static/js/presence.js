@@ -1,3 +1,9 @@
+const GUEST_PUBLIC_STORIES = [
+  { kicker: "someone was here", line: "the rug is still warm near one lamp." },
+  { kicker: "a small trace", line: "one lamp has dimmed; the postcard stayed where it was left." },
+  { kicker: "the room kept it", line: "a folded paper waits on the wall while the room settles." },
+];
+
 // Household/presence copy, partner aliases, realtime labels, room notes.
 export const presenceMethods = {
     applyAlias(name) {
@@ -71,6 +77,11 @@ export const presenceMethods = {
         return `for now, this room belongs to ${this.user.display_name} and ${this.pet.name}.`;
       }
       return "this room is still becoming shared.";
+    },
+
+    guestPublicStory() {
+      const utcDay = Math.floor(Date.now() / 86_400_000);
+      return GUEST_PUBLIC_STORIES[utcDay % GUEST_PUBLIC_STORIES.length];
     },
 
     presenceMode() {
