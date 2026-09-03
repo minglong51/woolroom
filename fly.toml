@@ -11,7 +11,7 @@ primary_region = 'sjc'
   dockerfile = 'Dockerfile'
 
 [env]
-  DATABASE_URL = 'sqlite+aiosqlite:////data/woolroom.db'
+  WOOLROOM_DB_PATH = '/data/woolroom.db'
   ENV = 'prod'
   LLM_PROVIDER = 'anthropic'
   LOG_LEVEL = 'info'

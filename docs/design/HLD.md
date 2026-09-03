@@ -1,6 +1,6 @@
 # woolroom — High-Level Design
 
-**Refreshed:** 2026-09-03 (private visible-pet card boundary)
+**Refreshed:** 2026-09-03 (private card, direct-hosting, and release boundaries)
 
 woolroom is a self-hostable shared ambient pet: one quiet animal in a small
 room, kept by two people. A rule-driven brain (mood drift, memory, seeded
@@ -187,16 +187,25 @@ in-process.
   those artifacts to a two-step publish job. PyPI authentication is a
   short-lived OIDC identity scoped to the reviewed `pypi` environment; no
   registry token is stored in the repository or GitHub.
+- **Woolroom release boundary.** A separate `woolroom-v<version>` workflow
+  requires root/Woolpack version parity, a tag commit on `origin/main`, and the
+  matching Woolpack version on the public package index before building; a
+  Woolroom version already present there is refused. Wheel and source artifacts
+  are inspected and installed beside an exact local Woolpack wheel; only
+  Woolroom artifacts cross into a distinct `pypi-woolroom` OIDC environment.
 
 ## Deployment
 
-One container: `Dockerfile` installs both local workspace projects, then
-`scripts/docker-entrypoint.sh` runs litestream restore/replicate only when
-object-storage secrets exist (else plain uvicorn). `fly.toml` +
+One container: `Dockerfile` installs both local workspace projects and creates
+the writable `/data` home. `scripts/docker-entrypoint.sh` resolves one absolute
+`WOOLROOM_DB_PATH` (default `/data/woolroom.db`) into the application
+`DATABASE_URL`, migrations, and optional Litestream restore/replication;
+conflicting values fail before any of those operations. It then serves the
+deployment-owned `WOOLROOM_ASGI_APP` target under one worker. `fly.toml` +
 `litestream.yml` are the ready fly.io template with continuous SQLite backup
-to the host's own bucket. All runtime configuration is environment variables
-(`app/config.py`, documented in `.env.example`), including primary/secondary
-species and coat defaults. Cat, dog, and pig need no external pack path.
+to the host's own bucket. Application and entrypoint environment variables are
+documented in `.env.example`, including primary/secondary species and coat
+defaults. Cat, dog, and pig need no external pack path.
 
 CI installs the locked workspace and separately builds both `woolroom` and
 `woolpack` distribution formats.
@@ -208,9 +217,8 @@ The standalone smoke checks that packaged resources match the canonical
 in-repo example/style, package modules contain no `app.*` imports, default and
 engine-derived `PackEnvironment` values agree, and isolated wheel and source
 installs can scaffold, render, and strict-lint a new pack. Publishing is separate:
-GitHub release tags under the Woolpack namespace build and inspect both wheel
-and source distributions before the environment-gated Trusted Publishing job
-uploads them to PyPI.
+GitHub release tags under the Woolpack and Woolroom namespaces enter distinct
+build/inspection workflows and environment-gated Trusted Publishing jobs.
 
 ## What this design refuses
 

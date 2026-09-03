@@ -51,9 +51,26 @@ give it a volume:
 ```sh
 docker run --rm -p 8000:8000 \
   -v woolroom-data:/data \
-  -e DATABASE_URL=sqlite+aiosqlite:////data/woolroom.db \
   woolroom
 ```
+
+The image uses `/data/woolroom.db` for the app, migrations, and optional
+Litestream replication. A downstream image can select another file and its own
+composition module without replacing the entrypoint. For example, after that
+image is built as `my-woolroom`:
+
+```sh
+docker run --rm -p 8000:8000 \
+  -v woolroom-data:/data \
+  -e WOOLROOM_DB_PATH=/data/custom.db \
+  -e WOOLROOM_ASGI_APP=deployment.app:application \
+  my-woolroom
+```
+
+`DATABASE_URL` remains accepted for compatibility. If it and
+`WOOLROOM_DB_PATH` are both set, they must identify the same absolute SQLite
+file or the container refuses to restore, migrate, or boot. The ASGI target is
+always served with one worker.
 
 ### fly.io
 
@@ -188,6 +205,18 @@ compatibility shims after `uv sync --extra dev`.
 Packs live in their authors' own repositories. The community index is
 [woolroom-packs](https://github.com/minglong51/woolroom-packs) — one line per
 pack, added by PR; see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Releasing
+
+Woolroom and Woolpack keep the same package version, but publish through
+separate trusted workflows. Publish Woolpack first; a `woolroom-v<version>`
+GitHub release is accepted only when the tag matches root metadata, resolves to
+an `origin/main` ancestor, and the matching Woolpack version is already on the
+public package index. An existing Woolroom version is refused rather than
+republished. The workflow builds and inspects both Woolroom artifact formats,
+tests them beside an exact local Woolpack wheel, and gives only the
+environment-gated publish job an OIDC identity. Creating the workflow does not
+publish or bump the current version.
 
 ## Status
 

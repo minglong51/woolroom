@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-09-03 (persisted action-ignore guard)
+**Refreshed:** 2026-09-03 (action cadence, direct-hosting, and release boundaries)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -360,10 +360,14 @@ code is right and this doc is stale.
 - `docker-entrypoint.sh` — container boot: starts as root only to chown
   the writable locations (`/app` dir non-recursively, `/data` when
   mounted — fly volumes arrive root-owned), then re-execs itself as the
-  `app` user (uid 1000) via runuser; litestream restore + replicate only
-  when `BUCKET_NAME` is set, config pre-flight (a settings refusal
-  prints a one-line remedy instead of a raw validation traceback),
-  migrate, single-worker uvicorn. Code stays root-owned read-only.
+  `app` user (uid 1000) via runuser. It validates a safe
+  `WOOLROOM_ASGI_APP=module:attribute` and resolves the absolute
+  `WOOLROOM_DB_PATH` (default `/data/woolroom.db`) with a compatible legacy
+  `DATABASE_URL`; a mismatch exits before Litestream restore, config
+  pre-flight, or migration. The selected ASGI target must import as a callable
+  before restore or migration. The one resolved path feeds Litestream and the
+  fail-closed migration API, then the selected app runs under exactly one
+  uvicorn worker. Code stays root-owned read-only.
 - `seed_demo_pet.py` — creates the read-only guest-mode demo pet
   (idempotent) and prints its id for `GUEST_PET_ID`.
 - `eval.py` — eval harness CLI: `run` / `diff` / `sessions`.
@@ -389,9 +393,11 @@ code is right and this doc is stale.
 - `Dockerfile` — copies root metadata/readme plus the child project metadata
   and `src/` tree before dependency installation, then installs both local
   editable projects in one pip transaction; it also copies `app` (including
-  the canonical profiles) and the public composition/migration package.
-  The runtime image therefore never resolves an unrelated registry package
-  named `woolpack`.
+  the canonical profiles) and the public composition/migration package. It
+  selects the matching amd64/arm64 Litestream package from Docker's
+  `TARGETARCH` and creates `/data` writable by uid 1000 so zero-config Docker
+  boot and a named volume share the same database default. The runtime image
+  therefore never resolves an unrelated registry package named `woolpack`.
 - `.github/workflows/ci.yml` — after locked workspace sync, the standalone
   boundary smoke compares the packaged style/template with their canonical
   app/repository copies, AST-checks every package module for forbidden
@@ -413,6 +419,14 @@ code is right and this doc is stale.
   `pypi` environment job receives only those artifacts; only this two-step job
   gets OIDC `id-token: write`, and the pinned PyPA publisher action exchanges
   that identity for the short-lived upload credential.
+- `.github/workflows/release-woolroom.yml` — distinct root trusted publishing
+  for `woolroom-v<version>`. The read-only build validates tag/version/main
+  ancestry, root/Woolpack parity, and availability of the matching Woolpack
+  version on the public index while refusing an already-published Woolroom
+  version; then it inspects and clean-installs both Woolroom artifacts with an
+  exact locally built Woolpack wheel and exercises the installed CLI, app, and
+  migrations. Only the resulting Woolroom artifacts enter the `pypi-woolroom`
+  OIDC publish job.
 
 ## `packs/pebble/` — the shipped example pack
 
