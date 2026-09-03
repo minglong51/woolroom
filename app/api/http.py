@@ -6,21 +6,33 @@ import html as _html
 import logging
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, HTTPException, Query, Request, Response, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    status,
+)
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import select as _sa_select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_pet, current_user, current_user_optional, db
-from app.auth.session import COOKIE_NAME, COOKIE_MAX_AGE, sign
-from app.auth.site_access import GUEST_ACCESS_COOKIE, has_guest_access
+from app.auth.session import COOKIE_MAX_AGE, sign
+from app.auth.site_access import has_guest_access
 from app.channels.webapp import channel
 from app.config import settings
 from app.data.quirks_catalog import QUIRKS, validate_quirks
 from app.data.species import SPECIES_REGISTRY, coats_for
 from app.engine.quirks import get_pose_detail_for_pet
-from app.memory import buffer, core as core_memory, moments
+from app.memory import buffer, moments
+from app.memory import core as core_memory
+from app.runtime import visits
+from app.runtime.actions import ActionIn, perform_action
 from app.runtime.pet_state import (
     HUNGRY_AFTER_MINUTES,
     broadcast_scene_payloads,
@@ -29,8 +41,6 @@ from app.runtime.pet_state import (
     fed_minutes_ago,
     resolve_guest_pet,
 )
-from app.runtime import visits
-from app.runtime.actions import ActionIn, perform_action
 from app.storage import repo
 from app.storage.db import SessionLocal
 from app.storage.models import Pet, User
@@ -46,7 +56,6 @@ from woolroom.overlay import (
 log = logging.getLogger(__name__)
 
 router = APIRouter()
-PENDING_INVITE_COOKIE = "woolroom_pending_invite"
 PENDING_INVITE_MAX_AGE = 60 * 60
 
 
@@ -113,10 +122,11 @@ class AdoptIn(BaseModel):
 # ────────── helpers ──────────
 
 
-def _set_cookie(resp: Response, user_id: str) -> None:
+def _set_cookie(request: Request, resp: Response, user_id: str) -> None:
+    namespace = request.app.state.auth_namespace
     resp.set_cookie(
-        key=COOKIE_NAME,
-        value=sign(user_id),
+        key=namespace.session_cookie,
+        value=sign(user_id, namespace=namespace),
         max_age=COOKIE_MAX_AGE,
         httponly=True,
         samesite="lax",
@@ -125,9 +135,9 @@ def _set_cookie(resp: Response, user_id: str) -> None:
     )
 
 
-def _set_pending_invite_cookie(resp: Response, token: str) -> None:
+def _set_pending_invite_cookie(request: Request, resp: Response, token: str) -> None:
     resp.set_cookie(
-        key=PENDING_INVITE_COOKIE,
+        key=request.app.state.auth_namespace.pending_invite_cookie,
         value=token,
         max_age=PENDING_INVITE_MAX_AGE,
         httponly=True,
@@ -137,8 +147,8 @@ def _set_pending_invite_cookie(resp: Response, token: str) -> None:
     )
 
 
-def _clear_pending_invite_cookie(resp: Response) -> None:
-    resp.delete_cookie(PENDING_INVITE_COOKIE, path="/")
+def _clear_pending_invite_cookie(request: Request, resp: Response) -> None:
+    resp.delete_cookie(request.app.state.auth_namespace.pending_invite_cookie, path="/")
 
 
 def _pet_to_dict(pet: Pet) -> dict:
@@ -240,10 +250,10 @@ async def list_quirks() -> dict:
 
 @router.post("/api/start")
 async def start(
+    request: Request,
     body: StartIn,
     resp: Response,
     background_tasks: BackgroundTasks,
-    pending_token: str | None = Cookie(default=None, alias=PENDING_INVITE_COOKIE),
     existing: User | None = Depends(current_user_optional),
     session: AsyncSession = Depends(db),
 ) -> dict:
@@ -254,6 +264,9 @@ async def start(
     user mints a fresh User by typing their display_name (and loses their
     pet history because the new user has no participant rows).
     """
+    pending_token = request.cookies.get(
+        request.app.state.auth_namespace.pending_invite_cookie
+    )
     joined_pet = None
     pending_invite_error = None
     if existing is not None:
@@ -267,11 +280,11 @@ async def start(
                         pending_token,
                         user,
                     )
-                _clear_pending_invite_cookie(resp)
+                _clear_pending_invite_cookie(request, resp)
             except HTTPException as exc:
                 if exc.status_code not in {404, 409}:
                     raise
-                _clear_pending_invite_cookie(resp)
+                _clear_pending_invite_cookie(request, resp)
                 pending_invite_error = exc.detail
         if joined_pet is not None:
             await session.commit()
@@ -285,7 +298,7 @@ async def start(
 
     if pending_token:
         if await _peek_invite(session, pending_token) is None:
-            _clear_pending_invite_cookie(resp)
+            _clear_pending_invite_cookie(request, resp)
             resp.status_code = status.HTTP_403_FORBIDDEN
             return {"detail": "invite not found or already used"}
         user = await repo.create_user(session, body.display_name)
@@ -297,12 +310,12 @@ async def start(
             )
         except HTTPException as exc:
             await session.rollback()
-            _clear_pending_invite_cookie(resp)
+            _clear_pending_invite_cookie(request, resp)
             resp.status_code = exc.status_code
             return {"detail": exc.detail}
         await session.commit()
-        _set_cookie(resp, user.id)
-        _clear_pending_invite_cookie(resp)
+        _set_cookie(request, resp, user.id)
+        _clear_pending_invite_cookie(request, resp)
         background_tasks.add_task(_broadcast_joined_pet, joined_pet.id)
     else:
         # Fresh-deployment bootstrap: the first human is admitted while the
@@ -317,7 +330,7 @@ async def start(
             )
         user = await repo.create_user(session, body.display_name)
         await session.commit()
-        _set_cookie(resp, user.id)
+        _set_cookie(request, resp, user.id)
 
     return {
         "user_id": user.id,
@@ -338,8 +351,8 @@ async def _broadcast_joined_pet(pet_id: str) -> None:
 
 
 @router.post("/api/logout")
-async def logout(resp: Response) -> dict:
-    resp.delete_cookie(COOKIE_NAME, path="/")
+async def logout(request: Request, resp: Response) -> dict:
+    resp.delete_cookie(request.app.state.auth_namespace.session_cookie, path="/")
     return {"ok": True}
 
 
@@ -347,14 +360,18 @@ async def logout(resp: Response) -> dict:
 async def me(
     request: Request,
     response: Response,
-    pending_token: str | None = Cookie(default=None, alias=PENDING_INVITE_COOKIE),
     user: User | None = Depends(current_user_optional),
     session: AsyncSession = Depends(db),
 ) -> dict:
+    namespace = request.app.state.auth_namespace
+    pending_token = request.cookies.get(namespace.pending_invite_cookie)
     response.headers["Cache-Control"] = "private, no-store"
     guest = bool(getattr(request.state, "guest", False)) or (
         user is None
-        and has_guest_access(request.cookies.get(GUEST_ACCESS_COOKIE))
+        and has_guest_access(
+            request.cookies.get(namespace.guest_access_cookie),
+            namespace=namespace,
+        )
     )
     if guest:
         return {
@@ -427,10 +444,14 @@ async def active_card(
     user: Annotated[User | None, Depends(current_user_optional)],
     session: Annotated[AsyncSession, Depends(db)],
 ) -> dict:
+    namespace = request.app.state.auth_namespace
     response.headers["Cache-Control"] = "private, no-store"
     guest = bool(getattr(request.state, "guest", False)) or (
         user is None
-        and has_guest_access(request.cookies.get(GUEST_ACCESS_COOKIE))
+        and has_guest_access(
+            request.cookies.get(namespace.guest_access_cookie),
+            namespace=namespace,
+        )
     )
     if guest:
         pet = await resolve_guest_pet(session)
@@ -497,7 +518,11 @@ async def guest_scene(
 ) -> dict:
     """The sanitized pet_state for guest visitors. Requires the guest cookie;
     every private field is stripped in build_guest_scene_payload."""
-    if not has_guest_access(request.cookies.get(GUEST_ACCESS_COOKIE)):
+    namespace = request.app.state.auth_namespace
+    if not has_guest_access(
+        request.cookies.get(namespace.guest_access_cookie),
+        namespace=namespace,
+    ):
         raise HTTPException(status_code=401, detail="guest access required")
     pet = await resolve_guest_pet(session)
     if pet is None:
@@ -869,7 +894,7 @@ async def join(
             media_type="text/html",
             headers={"location": "/", "Referrer-Policy": "no-referrer"},
         )
-        _set_pending_invite_cookie(redirect, token)
+        _set_pending_invite_cookie(request, redirect, token)
         return redirect
 
     # Short-circuit: if the visitor is already a participant of this invite's
@@ -925,21 +950,24 @@ async def _peek_invite_any(session: AsyncSession, token: str):
 
 @router.post("/api/join-pending")
 async def join_pending(
+    request: Request,
     resp: Response,
-    pending_token: str | None = Cookie(default=None, alias=PENDING_INVITE_COOKIE),
     user: User = Depends(current_user),
     session: AsyncSession = Depends(db),
 ) -> dict:
+    pending_token = request.cookies.get(
+        request.app.state.auth_namespace.pending_invite_cookie
+    )
     if not pending_token:
         raise HTTPException(status_code=404, detail="no pending invite")
     try:
         pet = await _join_user_to_invite(session, pending_token, user)
     except HTTPException as exc:
         if exc.status_code in {404, 409}:
-            _clear_pending_invite_cookie(resp)
+            _clear_pending_invite_cookie(request, resp)
         raise
     await session.commit()
-    _clear_pending_invite_cookie(resp)
+    _clear_pending_invite_cookie(request, resp)
     payload = await build_scene_payload(session, pet, current_user_id=user.id)
     await broadcast_scene_payloads(session, pet)
     return {"ok": True, "pet": payload}
@@ -966,6 +994,7 @@ _RECOVERY_CONFLICT_HTML = """<!doctype html>
 
 @router.get("/r/{token}")
 async def recover(
+    request: Request,
     token: str,
     existing: User | None = Depends(current_user_optional),
     session: AsyncSession = Depends(db),
@@ -978,7 +1007,7 @@ async def recover(
     redirect = RedirectResponse(url="/", status_code=303)
     redirect.headers["Referrer-Policy"] = "no-referrer"
     if existing is None:
-        _set_cookie(redirect, user.id)
+        _set_cookie(request, redirect, user.id)
     return redirect
 
 

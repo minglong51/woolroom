@@ -20,9 +20,10 @@ authoring and validation distribution that owns the data-only pack contract.
 engine vocabulary as a `PackEnvironment`, then registers the validated data
 through its thin runtime adapter. The root wheel exposes the stable
 `woolroom.create_app()` composition API, packages the browser and Alembic
-resources, and accepts one trusted `CatalogOverlayProvider`. Stock direct
-hosting uses the default empty provider; a private consumer such as Paws can
-install an adapter without copying the core application.
+resources, and accepts one trusted `CatalogOverlayProvider` plus an optional
+`AuthNamespace`. Stock direct hosting uses the empty provider and Woolroom
+cookie namespace; a private consumer can preserve its existing signed-cookie
+names and salts while installing an adapter without copying the core application.
 
 ## Architecture
 
@@ -93,10 +94,11 @@ in-process.
   is public by contract: its merged voice and assets remain static,
   guest-readable distribution content.
 - **Composition API** (`woolroom/`) — stable public import surface,
-  provider lifecycle/subjects, the default empty provider, and packaged
-  Alembic revisions. A trusted provider may own database access but receives
-  only the active owner or pinned-guest subject and returns one card-shaped
-  projection; it never receives or mutates the public registries.
+  provider lifecycle/subjects, the default empty provider, validated auth
+  namespace, and packaged Alembic revisions. A trusted provider may own
+  database access but receives only the active owner or pinned-guest subject
+  and returns one card-shaped projection; it never receives or mutates the
+  public registries.
 - **Woolpack distribution** (`packages/woolpack/`) — standalone pack-format
   v1 validator, SVG sanitizer, authoring lint, static render board, and
   scaffold CLI (`woolpack new|render|lint`), plus the versioned `PetCardV1`
@@ -133,9 +135,12 @@ in-process.
 - **Auth gates.** Signed-cookie sessions (no passwords); invite-only
   pairing; optional outer site password for private deployments; read-only
   guest mode resolves only one pinned demo pet with private fields stripped
-  server-side; `/admin/*` requires a shared token and is disabled without
-  one. Prod refuses to boot with the default secret or a non-metered
-  Anthropic credential.
+  server-side. Direct hosting uses distinct Woolroom session/site/guest salts
+  and cookie names. A composed app may replace all names and salts with one
+  validated `AuthNamespace`; pairwise-distinct validation keeps the three
+  credential domains separate and preserves an existing deployment's tokens.
+  `/admin/*` requires a shared token and is disabled without one. Prod refuses
+  to boot with the default secret or a non-metered Anthropic credential.
 - **LLM lane.** Off without a key; per-pet daily call cap; the validator
   rejects chatbot-register output, so the fallback phrasebook is always the
   floor. Human message text is wrapped as data, never instructions.

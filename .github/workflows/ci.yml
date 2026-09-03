@@ -61,6 +61,7 @@ jobs:
               metadata = BytesParser().parsebytes(archive.read(metadata_name))
               required = {
                   "woolroom/__init__.py",
+                  "woolroom/auth.py",
                   "woolroom/overlay.py",
                   "woolroom/py.typed",
                   "woolroom/migrations/env.py",
@@ -111,12 +112,23 @@ jobs:
 
           import woolroom
           from woolpack import PET_CARD_SCHEMA_VERSION
+          from woolroom import AuthNamespace
 
           assert Path(woolroom.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
           assert woolroom.__version__ == version("woolroom")
           assert woolroom.PLUGIN_API_VERSION == 1
           assert PET_CARD_SCHEMA_VERSION == 1
           assert woolroom.create_app().state.catalog_overlay_provider is not None
+          namespace = AuthNamespace(
+              session_cookie="distribution_session",
+              session_salt="distribution-session",
+              site_access_cookie="distribution_site",
+              site_access_salt="distribution-site",
+              guest_access_cookie="distribution_guest",
+              guest_access_salt="distribution-guest",
+              pending_invite_cookie="distribution_pending",
+          )
+          assert woolroom.create_app(auth_namespace=namespace).state.auth_namespace is namespace
           migration_dir = woolroom.migration_path()
           assert (migration_dir / "env.py").is_file()
           config = Config()

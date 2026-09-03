@@ -19,7 +19,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 def test_public_distribution_api_is_exposed() -> None:
     public_api = {
+        "DEFAULT_AUTH_NAMESPACE",
         "PLUGIN_API_VERSION",
+        "AuthNamespace",
         "BoundPetCard",
         "CatalogOverlayError",
         "CatalogOverlayProvider",
@@ -39,6 +41,17 @@ def test_public_distribution_api_is_exposed() -> None:
     assert callable(woolroom.create_app)
     assert callable(woolroom.migration_path)
     assert get_type_hints(woolroom.create_app)["return"].__name__ == "FastAPI"
+
+    namespace = woolroom.AuthNamespace(
+        session_cookie="distribution_session",
+        session_salt="distribution-session",
+        site_access_cookie="distribution_site",
+        site_access_salt="distribution-site",
+        guest_access_cookie="distribution_guest",
+        guest_access_salt="distribution-guest",
+        pending_invite_cookie="distribution_pending",
+    )
+    assert woolroom.create_app(auth_namespace=namespace).state.auth_namespace is namespace
 
 
 def test_workspace_distribution_version_matches_pyproject() -> None:

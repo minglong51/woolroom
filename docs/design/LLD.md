@@ -19,8 +19,9 @@ code is right and this doc is stale.
   (`GUEST_ACCESS_ENABLED`, `GUEST_PET_ID`), `ADMIN_TOKEN`, `OPEN_SIGNUP`.
   Prod validators: strong secret required, only metered `sk-ant-api` keys,
   guest mode requires a pinned pet.
-- `main.py` — FastAPI entry. `create_app(overlay_provider=...)` installs the
-  trusted provider or a default empty provider. Lifespan: provider
+- `main.py` — FastAPI entry. `create_app(overlay_provider=...,
+  auth_namespace=...)` installs the trusted provider or a default empty
+  provider and stores the validated auth namespace on app state. Lifespan: provider
   startup/shutdown around the app resources; `load_packs(settings.pack_paths)`
   first (fail-closed; boot refuses on gate violations), boot refusal when
   `SITE_PASSWORD`/guest access is enabled over the default `SECRET_KEY`
@@ -211,12 +212,16 @@ code is right and this doc is stale.
   merge/delete, recovery-link regenerate/revoke, llm stats. Split from
   `http.py` so the ops surface and the product surface read apart.
 - `api/ws.py` — `/ws` scene socket: initial `pet_state` push, then
-  `pet_state`/`presence` messages; cookie-authed.
-- `api/deps.py` — session-cookie user/pet dependencies.
-- `auth/session.py` — signed `woolroom_session` cookie (itsdangerous); no
-  email, no password.
-- `auth/site_access.py` — optional outer password gate (`woolroom_site_access`
-  timed cookie) and read-only guest cookie (`woolroom_guest_access`).
+  `pet_state`/`presence` messages; reads the app's configured auth namespace.
+- `api/deps.py` — session-cookie user/pet dependencies; cookie lookup is
+  request/app-scoped rather than a module-import-time alias.
+- `auth/session.py` — signed session cookie (itsdangerous); no email or
+  password. Helper defaults retain `woolroom_session` compatibility while
+  request paths pass the app namespace through signing and verification.
+- `auth/site_access.py` — optional outer password gate and read-only guest
+  cookie. Default helpers retain the `woolroom_site_access` and
+  `woolroom_guest_access` names; composed apps pass their distinct names and
+  salts explicitly.
 - `channels/base.py` — `Channel` protocol (how the pet reaches a human).
 - `channels/webapp.py` — the WebApp channel: in-process WS fanout keyed by
   pet_id, plus per-pet mutation guards.
@@ -274,10 +279,15 @@ code is right and this doc is stale.
 ## `woolroom/` — public composition and migration package
 
 - `__init__.py` — stable consumer import: package version,
-  `PLUGIN_API_VERSION`, `create_app(overlay_provider=...)`, `BoundPetCard`,
-  provider types, and `migration_path()` for installed-wheel Alembic adoption.
+  `PLUGIN_API_VERSION`, `create_app(overlay_provider=..., auth_namespace=...)`,
+  `AuthNamespace`, `BoundPetCard`, provider types, and `migration_path()` for
+  installed-wheel Alembic adoption.
   The package's PEP 561 marker makes this composition surface typed for
   consumers.
+- `auth.py` — frozen cookie/salt namespace for session, site-access, guest,
+  and pending-invite flows. Values are bounded safe ASCII; cookie names and
+  signing salts must each be pairwise distinct. `DEFAULT_AUTH_NAMESPACE`
+  pins direct-hosting behavior.
 - `overlay.py` — narrow immutable owner/guest subjects, async provider
   lifecycle/protocol, empty direct-hosting implementation, and the
   parse-again subject-binding boundary. Providers return `BoundPetCard`; core
@@ -338,8 +348,8 @@ code is right and this doc is stale.
   each into an isolated venv, and exercises `--version`, scaffold, render, and
   strict lint without the woolroom app. The core distribution smoke builds
   Woolroom wheel/source artifacts beside the exact Woolpack wheel, verifies
-  package/dependency version parity and required static/migration/card files,
-  installs each core artifact in isolation, imports the stable API, and runs
+  package/dependency version parity and required static/migration/card/auth files,
+  installs each core artifact in isolation, exercises the stable composition API, and runs
   packaged Alembic migrations against synthetic SQLite.
 - `.github/workflows/release-woolpack.yml` — a published GitHub release whose
   tag starts with `woolpack-v` checks out the event SHA with full history,

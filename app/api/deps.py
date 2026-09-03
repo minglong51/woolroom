@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
-from fastapi import Cookie, Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.session import COOKIE_NAME, load_user
+from app.auth.session import load_user
 from app.storage import repo
 from app.storage.db import SessionLocal
 from app.storage.models import Pet, User
@@ -24,10 +24,15 @@ async def db() -> AsyncIterator[AsyncSession]:
 
 
 async def current_user_optional(
-    paws_session: str | None = Cookie(default=None, alias=COOKIE_NAME),
+    request: Request,
     session: AsyncSession = Depends(db),
 ) -> User | None:
-    return await load_user(session, paws_session)
+    namespace = request.app.state.auth_namespace
+    return await load_user(
+        session,
+        request.cookies.get(namespace.session_cookie),
+        namespace,
+    )
 
 
 async def current_user(
