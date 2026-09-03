@@ -28,7 +28,7 @@ if [ -n "${BUCKET_NAME:-}" ]; then
 fi
 
 # Config pre-flight: surface a settings refusal as a readable remedy instead
-# of a raw validation traceback out of alembic (which imports app.config).
+# of a raw validation traceback from the migration wrapper.
 if ! python -c "import app.config"; then
   echo "" >&2
   echo "woolroom: configuration refused (validation error above)." >&2
@@ -37,7 +37,7 @@ if ! python -c "import app.config"; then
   exit 1
 fi
 
-# Idempotent: alembic upgrade head is a no-op on an already-current schema.
+# Idempotent for a known revision; unknown and unversioned databases fail closed.
 python scripts/migrate.py
 
 set -- uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 \

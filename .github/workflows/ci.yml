@@ -63,6 +63,7 @@ jobs:
                   "woolroom/__init__.py",
                   "woolroom/adoption.py",
                   "woolroom/auth.py",
+                  "woolroom/database.py",
                   "woolroom/overlay.py",
                   "woolroom/py.typed",
                   "woolroom/migrations/env.py",
@@ -99,6 +100,12 @@ jobs:
               }
               if license_files != {"LICENSE", "LICENSE-CC0"}:
                   raise SystemExit("woolroom wheel license texts have drifted")
+              entry_points_name = next(
+                  name for name in names if name.endswith(".dist-info/entry_points.txt")
+              )
+              entry_points = archive.read(entry_points_name).decode("utf-8")
+              if "woolroom-db = woolroom.database:main" not in entry_points:
+                  raise SystemExit("woolroom wheel lost the database CLI entry point")
 
           with ZipFile(os.environ["PACK_WHEEL"]) as archive:
               names = set(archive.namelist())
@@ -115,7 +122,8 @@ jobs:
           for core_artifact in "$core_wheel" "$core_sdist"; do
             install_root="$(mktemp -d)"
             uv venv "$install_root/venv"
-            uv pip install --python "$install_root/venv/bin/python" "$pack_wheel" "$core_artifact"
+            "$install_root/venv/bin/python" -m ensurepip
+            "$install_root/venv/bin/python" -m pip install "$pack_wheel" "$core_artifact"
             (
               cd "$install_root"
               DATABASE_URL="sqlite+aiosqlite:///$install_root/distribution.db" \
@@ -126,8 +134,6 @@ jobs:
           import sys
           from pathlib import Path
 
-          from alembic import command
-          from alembic.config import Config
           from fastapi.testclient import TestClient
           from importlib.metadata import version
 
@@ -152,9 +158,9 @@ jobs:
           assert woolroom.create_app(auth_namespace=namespace).state.auth_namespace is namespace
           migration_dir = woolroom.migration_path()
           assert (migration_dir / "env.py").is_file()
-          config = Config()
-          config.set_main_option("script_location", str(migration_dir))
-          command.upgrade(config, "head")
+          inspection = woolroom.upgrade_database(__import__("os").environ["DATABASE_URL"])
+          assert inspection.at_head
+          assert inspection.current_revisions == (woolroom.migration_head(),)
           db_path = Path(__import__("os").environ["DATABASE_URL"].removeprefix("sqlite+aiosqlite:///"))
           with sqlite3.connect(db_path) as connection:
               assert connection.execute("SELECT version_num FROM alembic_version").fetchone()
@@ -170,6 +176,8 @@ jobs:
               with TestClient(app) as client:
                   assert set(client.get("/api/packs").json()) == {"dog", "pig"}
           PY
+              DATABASE_URL="sqlite+aiosqlite:///$install_root/distribution.db" \
+                "$install_root/venv/bin/woolroom-db" inspect >/dev/null
             )
           done
       - name: Woolpack standalone boundary and distribution smoke

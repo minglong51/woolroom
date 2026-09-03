@@ -1,6 +1,6 @@
 # woolroom — High-Level Design
 
-**Refreshed:** 2026-09-02 (packaged species profiles and adoption composition)
+**Refreshed:** 2026-09-02 (public schema inspection and adoption boundary)
 
 woolroom is a self-hostable shared ambient pet: one quiet animal in a small
 room, kept by two people. A rule-driven brain (mood drift, memory, seeded
@@ -100,18 +100,26 @@ in-process.
   pack asset is static, guest-readable distribution content.
 - **Composition API** (`woolroom/`) — stable public import surface,
   provider lifecycle/subjects, the default empty provider, validated auth
-  namespace, validated primary/secondary adoption defaults, and packaged
-  Alembic revisions. A trusted provider may own database access but receives
-  only the active owner or pinned-guest subject and returns one card-shaped
-  projection; it never receives or mutates the public registries.
+  namespace, validated primary/secondary adoption defaults, packaged Alembic
+  revisions, and the fail-closed SQLite inspection/upgrade/adoption API. A
+  trusted provider may own database access but receives only the active owner
+  or pinned-guest subject and returns one card-shaped projection; it never
+  receives or mutates the public registries.
 - **Woolpack distribution** (`packages/woolpack/`) — standalone pack-format
   v1 validator, SVG sanitizer, authoring lint, static render board, and
   scaffold CLI (`woolpack new|render|lint`), plus the versioned `PetCardV1`
   browser-projection contract. Its wheel packages the Pebble
   scaffold and the room CSS needed to author without a woolroom checkout.
   Data in, reports/HTML/data out; it never imports the application.
-- **Storage** (`app/storage/`, `woolroom/migrations/`) — SQLAlchemy async over
-  aiosqlite; alembic owns schema in deployed environments.
+- **Storage** (`app/storage/`, `woolroom/database.py`, `woolroom/migrations/`) —
+  SQLAlchemy async over aiosqlite; Alembic owns schema in deployed environments.
+  Ordinary startup migration accepts only an empty database or exactly one
+  installed Woolroom revision. A current versionless core schema crosses the
+  boundary only through explicit, dry-run-first semantic adoption; extra
+  plugin tables are outside the core fingerprint and remain untouched.
+  Once a trusted adopter writes a known revision, that marker is the semantic
+  compatibility assertion; startup still checks SQLite integrity and core
+  foreign keys but does not re-fingerprint deployment-specific historical DDL.
 - **Scheduler** (`app/scheduler/`) — APScheduler in-process jobs: mood
   drift, daily outing, anniversary, busy-mode expiry, demo self-play.
 - **Eval** (`app/eval/`, `scripts/eval.py`) — corpus-driven harness for the
@@ -139,6 +147,17 @@ in-process.
   pet, species, and coat to match; provider errors and extra fields fail
   closed. Private cards never enter
   `CLIENT_VOICE`, `PACK_ASSETS`, `/api/voice`, or `/api/packs`.
+- **Database boundary.** Inspection is read-only. Unknown or multiple revision
+  markers and every nonempty unversioned schema are refused before migration
+  DDL, as are failed SQLite integrity checks or foreign-key violations in core
+  tables. Explicit adoption stamps only a versionless schema whose normalized
+  core fingerprint matches the installed head (columns and defaults, ordered
+  primary keys, logical indexes/uniques, foreign keys/on-delete, checks, and
+  triggers); physical column order and constraint names do not matter. A known
+  revision marker is then authoritative so a trusted provider can bridge a
+  privately verified compatible history without teaching public code its DDL
+  variants. Extra provider tables are reported but neither fingerprinted nor
+  changed.
 - **Auth gates.** Signed-cookie sessions (no passwords); invite-only
   pairing; optional outer site password for private deployments; read-only
   guest mode resolves only one pinned demo pet with private fields stripped

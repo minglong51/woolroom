@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-09-02 (packaged species profiles and adoption composition)
+**Refreshed:** 2026-09-02 (public schema inspection and adoption boundary)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -294,8 +294,8 @@ code is right and this doc is stale.
 - `__init__.py` — stable consumer import: package version,
   `PLUGIN_API_VERSION`, `create_app(overlay_provider=..., auth_namespace=...,
   adoption_defaults=...)`, `AdoptionDefaults`, `AuthNamespace`,
-  `BoundPetCard`, provider types, and `migration_path()` for installed-wheel
-  Alembic adoption.
+  `BoundPetCard`, provider types, database boundary types/functions, and
+  migration path/head/revision helpers for installed-wheel Alembic adoption.
   The package's PEP 561 marker makes this composition surface typed for
   consumers.
 - `adoption.py` — frozen `AdoptionDefaults`: primary/secondary species and
@@ -311,11 +311,24 @@ code is right and this doc is stale.
   verifies and strips its pet id before emitting the exact `PetCardV1` DTO.
   Provider exceptions, unknown card fields, and pet/species/coat mismatches
   fail closed.
+- `database.py` — installed SQLite boundary and `woolroom-db` CLI.
+  `inspect_database()` classifies empty, known-versioned, canonical
+  versionless, and unsafe version states without writing. `upgrade_database()`
+  permits only empty or exactly-one-known-revision inputs after SQLite
+  `quick_check` and core-table foreign-key checks. A known revision is the
+  semantic compatibility assertion; versioned provider histories are not
+  re-fingerprinted against one public DDL spelling.
+  `adopt_database(..., apply=False)` compares a normalized core fingerprint
+  and is dry-run-only until `apply=True` stamps the packaged head. The
+  fingerprint sorts physical columns and ignores constraint/index/trigger
+  names while comparing nullability/types/defaults, ordered primary keys,
+  logical indexes/uniques, foreign keys/on-delete, checks, and triggers. Extra
+  tables are reported and preserved.
 - `migrations/` — packaged Alembic `env.py`, template, and `versions/`.
-  Alembic is the only thing that touches schema in a deployed environment;
-  `scripts/migrate.py` runs `alembic upgrade head` at container start
-  (idempotent). Individual revision files are generated and carry no
-  independent contract.
+  `env.py` honors a caller-supplied URL or synchronous SQLAlchemy connection,
+  otherwise it resolves `DATABASE_URL` from application settings. Alembic is
+  the only thing that touches schema in a deployed environment. Individual
+  revision files are generated and carry no independent contract.
 
 ## `scripts/` — operator CLIs and checkout-compatible authoring shims
 
@@ -323,7 +336,8 @@ code is right and this doc is stale.
   executable shims over `woolpack.scaffold`, `woolpack.lint`, and
   `woolpack.render`. Existing checkout commands and imports retain their
   interface while the installed `woolpack` console script owns behavior.
-- `migrate.py` — `alembic upgrade head` (container startup).
+- `migrate.py` — invokes the public fail-closed `upgrade_database()` API at
+  container startup.
 - `docker-entrypoint.sh` — container boot: starts as root only to chown
   the writable locations (`/app` dir non-recursively, `/data` when
   mounted — fly volumes arrive root-owned), then re-execs itself as the
@@ -368,9 +382,10 @@ code is right and this doc is stale.
   strict lint without the woolroom app. The core distribution smoke builds
   Woolroom wheel/source artifacts beside the exact Woolpack wheel, verifies
   package/dependency version parity and required static/migration/card/auth/
-  profile files, installs each core artifact in isolation, enters a composed
-  dog/pig app lifespan twice, exercises the stable composition API, and runs
-  packaged Alembic migrations against synthetic SQLite.
+  profile/database files and the `woolroom-db` entry point, installs each core
+  artifact in isolation, enters a composed dog/pig app lifespan twice,
+  exercises the stable composition API, and upgrades/inspects synthetic SQLite
+  through the packaged fail-closed boundary.
 - `.github/workflows/release-woolpack.yml` — a published GitHub release whose
   tag starts with `woolpack-v` checks out the event SHA with full history,
   requires the tag version to match package metadata, and requires that SHA

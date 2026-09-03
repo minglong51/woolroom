@@ -84,6 +84,34 @@ Every path above works with zero API keys. All configuration is environment
 variables; [.env.example](.env.example) documents each one, including the
 optional site-access password for a private deployment.
 
+### Database upgrades and adoption
+
+Container startup runs the same fail-closed migration API exposed by the
+installed `woolroom-db` command. A normal upgrade accepts only a new empty
+SQLite file or a database carrying exactly one revision known to the installed
+Woolroom distribution. Read-only SQLite integrity and core foreign-key checks
+must also pass:
+
+```sh
+DATABASE_URL=sqlite+aiosqlite:///./woolroom.db woolroom-db inspect
+DATABASE_URL=sqlite+aiosqlite:///./woolroom.db woolroom-db upgrade
+```
+
+A current Woolroom schema created without Alembic is never stamped
+automatically. Adoption first performs a read-only semantic comparison; the
+command is a dry run unless `--apply` is explicit:
+
+```sh
+DATABASE_URL=sqlite+aiosqlite:///./copied.db woolroom-db adopt
+DATABASE_URL=sqlite+aiosqlite:///./copied.db woolroom-db adopt --apply
+```
+
+The comparison covers core columns, defaults, ordered primary keys, logical
+indexes and uniques, foreign keys, checks, and triggers while ignoring physical
+column order and constraint names. Extra plugin-owned tables are allowed and
+preserved; any change to a core table refuses adoption. Inspect and adopt a
+copy before changing a deployed database.
+
 Woolroom ships cat, dog, and pig as public core profiles. Cat remains the
 default; a host can choose the two adoption identities without copying code or
 supplying pack paths:

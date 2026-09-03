@@ -8,6 +8,16 @@ from fastapi import FastAPI
 
 from woolroom.adoption import AdoptionDefaults
 from woolroom.auth import DEFAULT_AUTH_NAMESPACE, AuthNamespace
+from woolroom.database import (
+    DatabaseBoundaryError,
+    DatabaseInspection,
+    DatabaseState,
+    adopt_database,
+    inspect_database,
+    migration_head,
+    migration_revisions,
+    upgrade_database,
+)
 from woolroom.overlay import (
     PLUGIN_API_VERSION,
     BoundPetCard,
@@ -51,10 +61,18 @@ __all__ = [
     "BoundPetCard",
     "CatalogOverlayError",
     "CatalogOverlayProvider",
+    "DatabaseBoundaryError",
+    "DatabaseInspection",
+    "DatabaseState",
     "EmptyCatalogOverlayProvider",
     "GuestCardSubject",
     "OwnerCardSubject",
     "__version__",
+    "adopt_database",
     "create_app",
+    "inspect_database",
+    "migration_head",
     "migration_path",
+    "migration_revisions",
+    "upgrade_database",
 ]
