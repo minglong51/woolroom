@@ -65,7 +65,7 @@ jobs:
           test "$head_sha" = "$GITHUB_SHA"
           git merge-base --is-ancestor "$head_sha" refs/remotes/origin/main
           printf 'version=%s\n' "$core_version" >> "$GITHUB_OUTPUT"
-      - name: Require release ordering and a new Woolroom version
+      - name: Require Woolpack release ordering
         shell: bash
         env:
           WOOLROOM_VERSION: ${{ steps.package.outputs.version }}
@@ -83,28 +83,17 @@ jobs:
           if version("woolpack") != os.environ["WOOLROOM_VERSION"]:
               raise SystemExit("the public Woolpack version does not match Woolroom")
           PY
-          "$index_root/venv/bin/python" - <<'PY'
-          import os
-          from urllib.error import HTTPError
-          from urllib.parse import quote
-          from urllib.request import urlopen
-
-          version = quote(os.environ["WOOLROOM_VERSION"], safe="")
-          try:
-              with urlopen(f"https://pypi.org/pypi/woolroom/{version}/json", timeout=15):
-                  pass
-          except HTTPError as exc:
-              if exc.code != 404:
-                  raise
-          else:
-              raise SystemExit("refusing to republish an existing Woolroom version")
-          PY
       - name: Build release and local compatibility artifacts
         run: |
+          set -euo pipefail
+          release_epoch="$(git show -s --format=%ct HEAD)"
+          export SOURCE_DATE_EPOCH="$release_epoch"
           uv build --package woolpack --no-sources --clear --no-create-gitignore \
             --out-dir pack-dist
           uv build --package woolroom --no-sources --clear --no-create-gitignore \
             --out-dir dist
+          python3 scripts/normalize_sdist.py \
+            --source-date-epoch "$release_epoch" pack-dist/*.tar.gz dist/*.tar.gz
       - name: Verify distribution metadata
         run: uvx --from 'twine==7.0.0' twine check --strict dist/*
       - name: Inspect and smoke release artifacts
@@ -253,12 +242,34 @@ jobs:
       name: pypi-woolroom
       url: https://pypi.org/p/woolroom
     permissions:
+      contents: read
       id-token: write
     steps:
+      - name: Check out the release verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
       - name: Retrieve Woolroom release artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: woolroom-${{ needs.build.outputs.version }}
           path: dist/
+      - name: Verify existing PyPI artifacts before resume
+        env:
+          WOOLROOM_VERSION: ${{ needs.build.outputs.version }}
+        run: >-
+          python3 scripts/verify_pypi_release.py
+          --package woolroom --version "$WOOLROOM_VERSION" --dist dist
       - name: Publish Woolroom release to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
+        with:
+          skip-existing: true
+      - name: Verify complete PyPI release
+        env:
+          WOOLROOM_VERSION: ${{ needs.build.outputs.version }}
+        run: >-
+          python3 scripts/verify_pypi_release.py
+          --package woolroom --version "$WOOLROOM_VERSION" --dist dist
+          --require-complete --wait-seconds 60

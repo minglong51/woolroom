@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import ast
 import importlib
 import importlib.metadata
+import re
 import sqlite3
 import tomllib
 from importlib.resources import files
@@ -15,6 +17,21 @@ from alembic.script import ScriptDirectory
 import woolroom
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _assigned_strings(path: Path, target_name: str) -> list[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    return [
+        node.value.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Name) and target.id == target_name
+            for target in node.targets
+        )
+        and isinstance(node.value, ast.Constant)
+        and isinstance(node.value.value, str)
+    ]
 
 
 def test_public_distribution_api_is_exposed() -> None:
@@ -66,6 +83,36 @@ def test_workspace_distribution_version_matches_pyproject() -> None:
     assert importlib.metadata.version("woolroom") == project_version == pack_version
     assert importlib.metadata.version("woolpack") == pack_version
     assert woolroom.__version__ == project_version
+    assert _assigned_strings(REPO_ROOT / "woolroom" / "__init__.py", "__version__") == [
+        project_version
+    ]
+    assert _assigned_strings(
+        REPO_ROOT / "packages" / "woolpack" / "src" / "woolpack" / "__init__.py",
+        "__version__",
+    ) == [pack_version]
+
+    cli_path = REPO_ROOT / "packages" / "woolpack" / "src" / "woolpack" / "cli.py"
+    cli_tree = ast.parse(cli_path.read_text(encoding="utf-8"), filename=str(cli_path))
+    package_version_function = next(
+        node
+        for node in cli_tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "_package_version"
+    )
+    assert [
+        node.value.value
+        for node in ast.walk(package_version_function)
+        if isinstance(node, ast.Return)
+        and isinstance(node.value, ast.Constant)
+        and isinstance(node.value.value, str)
+    ] == [pack_version]
+
+    issue_template = (
+        REPO_ROOT / ".github" / "ISSUE_TEMPLATE" / "pack_submission.md"
+    ).read_text(encoding="utf-8")
+    assert re.findall(r"woolpack==[0-9A-Za-z_.+-]+", issue_template) == [
+        f"woolpack=={pack_version}",
+        f"woolpack=={pack_version}",
+    ]
 
 
 def test_packaged_migrations_have_one_head_and_upgrade_sqlite(

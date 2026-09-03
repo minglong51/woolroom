@@ -40,7 +40,9 @@ jobs:
           test -n "$pack_wheel"
 
           CORE_WHEEL="$core_wheel" PACK_WHEEL="$pack_wheel" uv run python - <<'PY'
+          import ast
           import os
+          import re
           import tomllib
           from email.parser import BytesParser
           from pathlib import Path
@@ -54,6 +56,53 @@ jobs:
               raise SystemExit("woolroom and woolpack versions must move together")
           if f"woolpack=={pack_version}" not in root["project"]["dependencies"]:
               raise SystemExit("woolroom must pin the workspace woolpack version exactly")
+
+          def assigned_string(path, target_name):
+              tree = ast.parse(Path(path).read_text(encoding="utf-8"), filename=path)
+              return [
+                  node.value.value
+                  for node in ast.walk(tree)
+                  if isinstance(node, ast.Assign)
+                  and any(
+                      isinstance(target, ast.Name) and target.id == target_name
+                      for target in node.targets
+                  )
+                  and isinstance(node.value, ast.Constant)
+                  and isinstance(node.value.value, str)
+              ]
+
+          if assigned_string("woolroom/__init__.py", "__version__") != [core_version]:
+              raise SystemExit("woolroom source fallback version has drifted")
+          if assigned_string(
+              "packages/woolpack/src/woolpack/__init__.py", "__version__"
+          ) != [pack_version]:
+              raise SystemExit("woolpack source fallback version has drifted")
+          cli_tree = ast.parse(
+              Path("packages/woolpack/src/woolpack/cli.py").read_text(encoding="utf-8")
+          )
+          package_version_function = next(
+              node
+              for node in cli_tree.body
+              if isinstance(node, ast.FunctionDef) and node.name == "_package_version"
+          )
+          cli_fallbacks = [
+              node.value.value
+              for node in ast.walk(package_version_function)
+              if isinstance(node, ast.Return)
+              and isinstance(node.value, ast.Constant)
+              and isinstance(node.value.value, str)
+          ]
+          if cli_fallbacks != [pack_version]:
+              raise SystemExit("woolpack CLI fallback version has drifted")
+          issue_template = Path(".github/ISSUE_TEMPLATE/pack_submission.md").read_text(
+              encoding="utf-8"
+          )
+          expected_pin = f"woolpack=={pack_version}"
+          if re.findall(r"woolpack==[0-9A-Za-z_.+-]+", issue_template) != [
+              expected_pin,
+              expected_pin,
+          ]:
+              raise SystemExit("pack submission commands have drifted from Woolpack")
 
           with ZipFile(os.environ["CORE_WHEEL"]) as archive:
               names = set(archive.namelist())
