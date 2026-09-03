@@ -144,6 +144,27 @@ def test_upgrade_refuses_unsafe_version_markers_without_writes(
     assert _rows(path, "plugin_cards") == rows
 
 
+def test_case_variant_version_marker_cannot_bypass_explicit_adoption(tmp_path: Path) -> None:
+    path = tmp_path / "case-variant-version.db"
+    _create_canonical_unversioned(path)
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            "CREATE TABLE Alembic_Version (version_num VARCHAR(32) NOT NULL PRIMARY KEY)"
+        )
+        connection.execute(
+            "INSERT INTO Alembic_Version (version_num) VALUES ('not-a-woolroom-revision')"
+        )
+
+    inspection = woolroom.inspect_database(_url(path))
+    assert inspection.state is woolroom.DatabaseState.UNKNOWN_REVISION
+    assert inspection.can_adopt is False
+    _assert_refused_without_writes(
+        path,
+        lambda: woolroom.adopt_database(_url(path), apply=True),
+        woolroom.DatabaseState.UNKNOWN_REVISION,
+    )
+
+
 def test_upgrade_refuses_invalid_version_table_without_writes(tmp_path: Path) -> None:
     path = tmp_path / "invalid-version-table.db"
     with sqlite3.connect(path) as connection:

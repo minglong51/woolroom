@@ -293,12 +293,17 @@ def _inspect_connection(
             "WHERE name NOT LIKE 'sqlite\\_%' ESCAPE '\\'"
         )
     )
-    table_names = tuple(
+    all_table_names = tuple(
         sorted(
             name
             for object_type, name, _ in schema_rows
-            if object_type == "table" and name != "alembic_version"
+            if object_type == "table"
         )
+    )
+    all_tables_by_folded = {name.casefold(): name for name in all_table_names}
+    version_table_name = all_tables_by_folded.get("alembic_version")
+    table_names = tuple(
+        name for name in all_table_names if name.casefold() != "alembic_version"
     )
     canonical = _canonical_fingerprint(head).as_dict()
     canonical_version_table = canonical.pop("alembic_version")
@@ -343,15 +348,8 @@ def _inspect_connection(
                 differences=(f"core table {actual_name} has foreign key violations",),
             )
 
-    all_user_objects = tuple(
-        row for row in schema_rows if not (row[0] == "table" and row[1] == "alembic_version")
-    )
-    version_table_present = any(
-        object_type == "table" and name == "alembic_version"
-        for object_type, name, _ in schema_rows
-    )
-    if version_table_present:
-        if _fingerprint_table(connection, "alembic_version") != canonical_version_table:
+    if version_table_name is not None:
+        if _fingerprint_table(connection, version_table_name) != canonical_version_table:
             return DatabaseInspection(
                 state=DatabaseState.INVALID_VERSION_TABLE,
                 head_revision=head,
@@ -362,7 +360,7 @@ def _inspect_connection(
                 sorted(
                     str(row[0])
                     for row in connection.execute(
-                        'SELECT version_num FROM "alembic_version"'
+                        f"SELECT version_num FROM {_quote_identifier(version_table_name)}"
                     )
                 )
             )
@@ -387,7 +385,7 @@ def _inspect_connection(
             extra_tables=extra_tables,
         )
 
-    if not all_user_objects:
+    if not schema_rows:
         return DatabaseInspection(state=DatabaseState.EMPTY, head_revision=head)
 
     actual = _fingerprint_schema(connection, table_names=canonical_names).as_dict()
