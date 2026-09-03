@@ -45,14 +45,16 @@ class Settings(BaseSettings):
     moments_max_per_year: int = 52
 
     adopt_allowlist: str = ""
+    # The two deployment-owned adoption identities. Core cat/dog/pig profiles
+    # need no path; custom species validate after PACK_PATHS loads.
     adopt_primary_species: str = "cat"
     adopt_primary_coat: str = "marmalade"
     adopt_secondary_species: str = "cat"
     adopt_secondary_coat: str = "marmalade"
 
-    # Woolroom public content packs (pack format v1): comma-separated local
-    # directories, loaded + registered at boot by app/packs/loader.py behind
-    # fail-closed sanitization gates. Empty = no packs, behavior unchanged.
+    # Additional Woolroom public content packs (pack format v1): comma-separated
+    # local directories, loaded after the packaged dog/pig profiles by
+    # app/packs/loader.py behind fail-closed sanitization gates.
     # Every loaded pack is served through the public voice/asset catalogs.
     # Private site content must use the trusted catalog overlay provider.
     # NoDecode: env carries a CSV string (like ADOPT_ALLOWLIST), not JSON.

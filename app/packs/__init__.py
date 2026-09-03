@@ -6,6 +6,8 @@ format and the gate list.
 """
 
 from app.packs.loader import (
+    CORE_PROFILE_IDS,
+    CORE_PROFILE_ROOT,
     LOADED_PACKS,
     PACK_ASSETS,
     PackCollisionError,
@@ -21,11 +23,14 @@ from app.packs.loader import (
     PackVocabError,
     PackVoiceError,
     client_pack_assets,
+    load_core_profiles,
     load_pack,
     load_packs,
 )
 
 __all__ = [
+    "CORE_PROFILE_IDS",
+    "CORE_PROFILE_ROOT",
     "LOADED_PACKS",
     "PACK_ASSETS",
     "PackCollisionError",
@@ -41,6 +46,7 @@ __all__ = [
     "PackVocabError",
     "PackVoiceError",
     "client_pack_assets",
+    "load_core_profiles",
     "load_pack",
     "load_packs",
 ]

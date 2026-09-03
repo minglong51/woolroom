@@ -33,7 +33,8 @@ class Context:
 
 def build_system_prompt(pet: Pet, facts: dict[str, str] | None = None) -> str:
     temperament = pet.temperament or {}
-    breed = temperament.get("breed_archetype", "window cat")
+    species = getattr(pet, "species", None) or "cat"
+    breed = temperament.get("breed_archetype", species)
     description = temperament.get("description", "")
     quirks_lines = []
     for qid in pet.quirks or []:
@@ -51,7 +52,6 @@ def build_system_prompt(pet: Pet, facts: dict[str, str] | None = None) -> str:
     adopted_at = getattr(pet, "adopted_at", None)
     stage = life_stage(adopted_at)
     years = pet_age_years(adopted_at)
-    species = getattr(pet, "species", None) or "cat"
     age_line = f"~{years:.1f} pet-years old, a {stage} {species} — {_STAGE_BLURB[stage]}"
 
     return SYSTEM_TEMPLATE.format(

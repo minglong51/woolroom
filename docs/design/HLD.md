@@ -1,6 +1,6 @@
 # woolroom — High-Level Design
 
-**Refreshed:** 2026-09-02 (installable core and private card-overlay boundary)
+**Refreshed:** 2026-09-02 (packaged species profiles and adoption composition)
 
 woolroom is a self-hostable shared ambient pet: one quiet animal in a small
 room, kept by two people. A rule-driven brain (mood drift, memory, seeded
@@ -20,10 +20,11 @@ authoring and validation distribution that owns the data-only pack contract.
 engine vocabulary as a `PackEnvironment`, then registers the validated data
 through its thin runtime adapter. The root wheel exposes the stable
 `woolroom.create_app()` composition API, packages the browser and Alembic
-resources, and accepts one trusted `CatalogOverlayProvider` plus an optional
-`AuthNamespace`. Stock direct hosting uses the empty provider and Woolroom
-cookie namespace; a private consumer can preserve its existing signed-cookie
-names and salts while installing an adapter without copying the core application.
+resources, and accepts one trusted `CatalogOverlayProvider`, an optional
+`AuthNamespace`, and validated `AdoptionDefaults`. Stock direct hosting uses
+the empty provider, Woolroom cookie namespace, and cat/cat defaults; a private
+consumer can preserve existing signed-cookie names and salts, select its two
+public species, and install an adapter without copying the core application.
 
 ## Architecture
 
@@ -49,7 +50,8 @@ in-process.
                          │  scheduler/: mood drift, daily outing, … │
                          │  storage/ (SQLAlchemy) ──▶ SQLite file   │
                          │                                          │
-                         │  packs/loader ◀── public PACK_PATHS      │
+                         │  packs/loader ◀── core dog/pig profiles  │
+                         │       ▲          + public PACK_PATHS     │
                          │       │                                  │
                          │       └──▶ woolpack.validate_pack        │
                          │   register validated public data/assets  │
@@ -84,21 +86,24 @@ in-process.
 - **Memory** (`app/memory/`) — three tiers: a rolling buffer of recent
   events, weekly-promoted shared moments, and permanent core facts.
 - **Data** (`app/data/`) — content modules: the builtin cat's phrasebook,
-  voice/client copy, species registry, quirk catalog. Plain tables; mutated
-  only at boot by the pack loader, then frozen.
+  voice/client copy, species registry, quirk catalog. Plain tables; extended
+  at boot by packaged public dog/pig profiles and configured packs, then
+  frozen.
 - **Public pack integration** (`app/packs/`, `packs/`) — the application adapter
   derives a `PackEnvironment` from the live engine vocabularies, asks
-  `woolpack` to validate each `PACK_PATHS` directory, then alone mutates the
-  runtime species, phrase, quirk, voice, and client-asset registries. The
-  shipped Pebble pack remains the repository's runtime example. `PACK_PATHS`
-  is public by contract: its merged voice and assets remain static,
-  guest-readable distribution content.
+  `woolpack` to validate the packaged dog/pig profiles first and each
+  `PACK_PATHS` directory second, then alone mutates the runtime species,
+  phrase, quirk, voice, and client-asset registries. Core-profile loading is
+  process-idempotent because app factories may enter more than one lifespan;
+  ordinary pack loading remains collision-strict. Dog and pig are reserved
+  public identities. Pebble remains the external-author example. Every served
+  pack asset is static, guest-readable distribution content.
 - **Composition API** (`woolroom/`) — stable public import surface,
   provider lifecycle/subjects, the default empty provider, validated auth
-  namespace, and packaged Alembic revisions. A trusted provider may own
-  database access but receives only the active owner or pinned-guest subject
-  and returns one card-shaped projection; it never receives or mutates the
-  public registries.
+  namespace, validated primary/secondary adoption defaults, and packaged
+  Alembic revisions. A trusted provider may own database access but receives
+  only the active owner or pinned-guest subject and returns one card-shaped
+  projection; it never receives or mutates the public registries.
 - **Woolpack distribution** (`packages/woolpack/`) — standalone pack-format
   v1 validator, SVG sanitizer, authoring lint, static render board, and
   scaffold CLI (`woolpack new|render|lint`), plus the versioned `PetCardV1`
@@ -120,8 +125,10 @@ in-process.
   version, registry collisions). The application passes the engine-derived
   environment and refuses boot on any violation before registering anything.
   There is no runtime install, remote fetch, or hot reload — every byte served
-  is a byte the host chose. A known-bad-pack kill-list is a designed loader
-  gate that lands before any remote-install path exists.
+  is a byte the host chose. Packaged dog/pig profiles cross the same validator
+  and reserve those species ids before operator packs load. A known-bad-pack
+  kill-list is a designed loader gate that lands before any remote-install
+  path exists.
 - **Private overlay boundary.** `PACK_PATHS` never carries private site
   content. Deployment-installed provider code may own a database, but the
   core passes it only a narrow subject and revalidates its result as the exact
@@ -161,7 +168,8 @@ One container: `Dockerfile` installs both local workspace projects, then
 object-storage secrets exist (else plain uvicorn). `fly.toml` +
 `litestream.yml` are the ready fly.io template with continuous SQLite backup
 to the host's own bucket. All runtime configuration is environment variables
-(`app/config.py`, documented in `.env.example`).
+(`app/config.py`, documented in `.env.example`), including primary/secondary
+species and coat defaults. Cat, dog, and pig need no external pack path.
 
 CI installs the locked workspace and separately builds both `woolroom` and
 `woolpack` distribution formats.

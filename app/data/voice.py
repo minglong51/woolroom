@@ -124,13 +124,13 @@ def room_note_line(
     when = "just now" if freshness == "fresh" else "earlier" if freshness == "recent" else "before"
     templates = {
         "greet": f"{subject} came in and said hello {when}.",
-        "pet": f"{subject} sat a while, hand on the cat, {when}.",
+        "pet": f"{subject} sat a while, hand on the pet, {when}.",
         "feed": f"{subject} filled the bowl {when}.",
-        "walk": f"{subject} took the cat through the door {when}.",
-        "call": f"{subject} called the cat by name {when}.",
+        "walk": f"{subject} took the pet through the door {when}.",
+        "call": f"{subject} called the pet by name {when}.",
         "message": f"{subject} left a few quiet words {when}.",
         "play": f"{subject} threw something worth chasing {when}.",
-        "visit": f"{subject} walked the cat next door {when}.",
+        "visit": f"{subject} walked the pet next door {when}.",
         "host": f"{subject} welcomed the visitor from next door {when}.",
     }
     return templates.get(event_type, f"{subject} passed through the room {when}.")
@@ -208,7 +208,7 @@ FACT_LABELS: dict[str, str] = {
 
 
 STAGE_BLURB: dict[str, str] = {
-    "kitten": "still growing into its paws — bold in bursts, asleep mid-sentence",
+    "juvenile": "still growing into its paws — bold in bursts, asleep mid-sentence",
     "young": "all legs and curiosity, energy arriving in spikes",
     "adult": "settled and self-possessed, fluent in its own routines",
     "senior": "slower now, choosier, warmer once it gets there",
@@ -230,19 +230,19 @@ CLIENT_VOICE: dict = {
     "presence": {
         "pair_here_together": "{a} and {b} are both in the room, and {pet} is pretending not to notice.",
         "pair_share_room": "this room belongs to {a}, {b}, and {pet} — in that order, according to {pet}.",
-        "invite_note_shared": "two humans. one cat. one room, finally full.",
+        "invite_note_shared": "two humans. one pet. one room, finally full.",
     },
     # state.js — first-session narration, one line per overlay step.
     "onboarding": [
         "this is the room the two of you share.",
-        "pet the cat, or just sit here a while.",
+        "spend time with your pet, or just sit here a while.",
         "it keeps what happens, even when you're not looking.",
     ],
     # wool.js — the room's own refusals and jokes.
     "wool": {
         "night_refusals": [
             "shh. down for the night. (one ear twitches, settling.)",
-            "mm. the cat reopens at first light.",
+            "mm. your pet reopens at first light.",
         ],
         "lump_joke": "nothing lives under this rug. (something small absolutely lives under this rug.)",
         "lamp_hearts_one": "{name} left a warm thought on your lamp while you were away.",
@@ -290,13 +290,13 @@ CLIENT_VOICE: dict = {
 INDEX_VOICE: dict[str, str] = {
     "TAGLINE": "a quiet room, shared.",
     "ADOPT_KICKER": "bringing someone home",
-    "ADOPT_TITLE": "name the cat. then pick the two habits it keeps for good.",
+    "ADOPT_TITLE": "name your pet. then pick the two habits it keeps for good.",
     "ADOPT_SUB": "this should feel like meeting it, not configuring it.",
     "CEREMONY_CARD_TITLE": "someone small moved in next door.",
     "CEREMONY_CARD_NOTE": "is waiting to meet you. it arrived with one habit sewn in; the second is yours to choose.",
     "CEREMONY_CARD_BUTTON": "meet it",
     "CEREMONY_DRAWER_NOTE": "one habit came with it. the other is yours — it's how it will know you.",
     "CEREMONY_DRAWER_BUTTON": "that's it",
-    "SECOND_ADOPT_NOTE": "the room next door is empty. a second cat could live there — you choose its name and its first habit; your partner chooses the second when they meet it.",
-    "SECOND_ADOPT_BUTTON": "bring a second cat home",
+    "SECOND_ADOPT_NOTE": "the room next door is empty. a second pet could live there — you choose its name and its first habit; your partner chooses the second when they meet it.",
+    "SECOND_ADOPT_BUTTON": "bring a second pet home",
 }

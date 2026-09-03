@@ -61,6 +61,7 @@ jobs:
               metadata = BytesParser().parsebytes(archive.read(metadata_name))
               required = {
                   "woolroom/__init__.py",
+                  "woolroom/adoption.py",
                   "woolroom/auth.py",
                   "woolroom/overlay.py",
                   "woolroom/py.typed",
@@ -71,6 +72,16 @@ jobs:
                   "app/static/app.js",
                   "app/static/style.css",
                   "app/static/js/figures.js",
+                  "app/packs/profiles/dog/pack.yaml",
+                  "app/packs/profiles/dog/voice.yaml",
+                  "app/packs/profiles/dog/phrases/dog.yaml",
+                  "app/packs/profiles/dog/species/dog.svg",
+                  "app/packs/profiles/dog/species/dog.yaml",
+                  "app/packs/profiles/pig/pack.yaml",
+                  "app/packs/profiles/pig/voice.yaml",
+                  "app/packs/profiles/pig/phrases/pig.yaml",
+                  "app/packs/profiles/pig/species/pig.svg",
+                  "app/packs/profiles/pig/species/pig.yaml",
               }
               missing = sorted(required - names)
               if missing:
@@ -79,6 +90,15 @@ jobs:
                   raise SystemExit("woolroom wheel version has drifted from pyproject.toml")
               if f"woolpack=={pack_version}" not in metadata.get_all("Requires-Dist", []):
                   raise SystemExit("woolroom wheel lost its exact woolpack compatibility pin")
+              if metadata.get("License-Expression") != "MIT AND CC0-1.0":
+                  raise SystemExit("woolroom wheel SPDX license metadata has drifted")
+              license_files = {
+                  name.rsplit("/", 1)[-1]
+                  for name in names
+                  if ".dist-info/licenses/" in name
+              }
+              if license_files != {"LICENSE", "LICENSE-CC0"}:
+                  raise SystemExit("woolroom wheel license texts have drifted")
 
           with ZipFile(os.environ["PACK_WHEEL"]) as archive:
               names = set(archive.namelist())
@@ -108,11 +128,12 @@ jobs:
 
           from alembic import command
           from alembic.config import Config
+          from fastapi.testclient import TestClient
           from importlib.metadata import version
 
           import woolroom
           from woolpack import PET_CARD_SCHEMA_VERSION
-          from woolroom import AuthNamespace
+          from woolroom import AdoptionDefaults, AuthNamespace
 
           assert Path(woolroom.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
           assert woolroom.__version__ == version("woolroom")
@@ -137,6 +158,17 @@ jobs:
           db_path = Path(__import__("os").environ["DATABASE_URL"].removeprefix("sqlite+aiosqlite:///"))
           with sqlite3.connect(db_path) as connection:
               assert connection.execute("SELECT version_num FROM alembic_version").fetchone()
+          app = woolroom.create_app(
+              adoption_defaults=AdoptionDefaults(
+                  primary_species="dog",
+                  primary_coat="red",
+                  secondary_species="pig",
+                  secondary_coat="pink",
+              )
+          )
+          for _ in range(2):
+              with TestClient(app) as client:
+                  assert set(client.get("/api/packs").json()) == {"dog", "pig"}
           PY
             )
           done
@@ -241,5 +273,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           persist-credentials: false
-      - name: Docker build smoke (build only)
-        run: docker build --build-arg GIT_SHA=ci -t woolroom-ci .
+      - name: Docker build and core-profile smoke
+        run: |
+          docker build --build-arg GIT_SHA=ci -t woolroom-ci .
+          docker run --rm woolroom-ci python -c 'from app.packs import load_core_profiles; assert [record.name for record in load_core_profiles()] == ["dog", "pig"]'

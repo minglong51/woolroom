@@ -247,6 +247,7 @@ read, and standalone validation does not import or touch runtime registries.
 |---|---|---|
 | `load` | ERROR | any loader gate refusal (manifest/confinement/size/SVG/species/phrase/quirk/voice/vocab/collision) — runs first and stops the run |
 | `manifest` | PASS | names author · license · fx vocab (all loader-required) |
+| `rig wrapper ownership [<id>]` | ERROR | fragment declares host-owned `.breath`/`.squishg`, double-applying animation |
 | `rig structure [<id>]` | ERROR | missing `.tailg`/`.headg`/`.earg`; `#dog-eyes` absent or duplicated |
 | `rig eye states [<id>]` | ERROR | missing eye-state subgroup → eyeless in that pose |
 | `rig palette [<id>]` | ERROR | missing `.coat`/`.cream`/`.point` → a coat slot paints nowhere |

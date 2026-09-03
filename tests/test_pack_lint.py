@@ -40,7 +40,7 @@ SHIPPED_PACK = Path(__file__).parent.parent / "packs" / "pebble"
 
 SCRIPTS = Path(__file__).parent.parent / "scripts"
 sys.path.insert(0, str(SCRIPTS))
-import pack_lint  # scripts/ is not a package
+import pack_lint  # noqa: E402  (scripts/ is not a package)
 
 
 @pytest.fixture(autouse=True)

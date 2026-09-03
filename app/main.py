@@ -34,7 +34,7 @@ from app.auth.site_access import (
 from app.config import settings
 from app.data.species import SPECIES_REGISTRY
 from app.data.voice import CLIENT_VOICE, INDEX_VOICE
-from app.packs import client_pack_assets, load_packs
+from app.packs import client_pack_assets, load_core_profiles, load_packs
 from app.scheduler.jobs import start_scheduler
 from app.storage.db import engine
 from app.storage.models import Base
@@ -241,9 +241,10 @@ async def lifespan(app: FastAPI):
             "cookies are signed with it); set SECRET_KEY to a random value"
         )
     # Woolroom public content packs (format v1): load + register species, phrase
-    # overlays, quirks, and voice BEFORE any request is served; the
-    # registries are frozen again afterwards. PACK_PATHS defaults to empty
-    # (a no-op); any gate violation raises a named PackError and refuses boot.
+    # overlays, quirks, and voice BEFORE any request is served; the packaged
+    # dog/pig profiles load first, then PACK_PATHS adds operator-selected
+    # species. Any gate violation raises a named PackError and refuses boot.
+    load_core_profiles()
     load_packs(settings.pack_paths)
     app.state.adoption_defaults.validate(
         {species: entry["coats"] for species, entry in SPECIES_REGISTRY.items()}
@@ -483,9 +484,9 @@ def create_app(
         # The pack-species figure assets (app/packs/loader.py:PACK_ASSETS,
         # shaped by client_pack_assets), fetched once at boot alongside
         # /api/voice — the builtin cat is NOT in the map (the client has
-        # it), so it's empty when no packs loaded. Same static-content
-        # treatment as /api/voice: the two cache policies, guest allowlist,
-        # never flag-gated.
+        # it); packaged dog/pig and additional pack species are. Same
+        # static-content treatment as /api/voice: the two cache policies,
+        # guest allowlist, never flag-gated.
         resp = JSONResponse(client_pack_assets())
         resp.headers["Cache-Control"] = (
             _IMMUTABLE if request.query_params.get("v") == APP_VERSION else _REVALIDATE

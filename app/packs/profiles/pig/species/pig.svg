@@ -1,7 +1,5 @@
 <g>
   <ellipse class="dog-contact" cx="200" cy="452" rx="62" ry="8" fill="rgba(90,72,54,.28)"/>
-  <g class="breath">
-    <g class="squishg">
       <g class="tailg">
         <path class="point" fill="#c87987" d="M250 371c14-12 30-5 27 8c-2 9-14 10-18 3c-3-5 3-9 7-6c-1-5-8-5-13 1Z"/>
       </g>
@@ -48,8 +46,6 @@
         <path d="M164 370q-10 14-9 28"/>
         <path d="M174 366q-9 14-8 28"/>
       </g>
-    </g>
-  </g>
   <g class="touchfibers" aria-hidden="true">
     <path d="M147 362l-11-5M145 379l-12 1M253 362l11-5M255 379l12 1M165 432l-8 9M235 432l8 9"/>
   </g>

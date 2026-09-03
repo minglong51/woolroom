@@ -11,6 +11,7 @@ WORKDIR /app
 
 COPY pyproject.toml README.md LICENSE ./
 COPY packages/woolpack/pyproject.toml ./packages/woolpack/
+COPY packages/woolpack/LICENSE packages/woolpack/LICENSE-CC0 ./packages/woolpack/
 COPY packages/woolpack/src ./packages/woolpack/src
 RUN pip install --upgrade pip && pip install -e ./packages/woolpack -e .
 

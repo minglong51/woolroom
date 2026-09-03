@@ -3,7 +3,7 @@
 woolroom Phase 1b: the pack loader's `PACK_ASSETS` reach the client over
 GET /api/packs — fetched at boot next to /api/voice, resolved by figures.js
 for any species the builtin cat tables don't carry. These tests pin the
-endpoint (empty with no packs, the pebble fixture's sanitized assets, the
+endpoint (core profiles with no configured packs, the pebble fixture's sanitized assets, the
 statics cache policy, the guest allowlist — the same static-content
 treatment as /api/voice) and the boot-level render contract: a pebble pet's
 /api/me payload plus the packs payload give the client everything
@@ -67,13 +67,15 @@ def _boot_app(
 # ────────── the endpoint ──────────
 
 
-def test_packs_endpoint_empty_with_no_packs(tmp_path: Path, monkeypatch) -> None:
+def test_packs_endpoint_serves_core_profiles_without_pack_paths(
+    tmp_path: Path, monkeypatch
+) -> None:
     main = _boot_app(tmp_path, monkeypatch)
 
     with TestClient(main.create_app()) as client:
         resp = client.get("/api/packs")
         assert resp.status_code == 200
-        assert resp.json() == {}
+        assert set(resp.json()) == {"dog", "pig"}
 
 
 def test_packs_endpoint_serves_pack_species_assets(tmp_path: Path, monkeypatch) -> None:
@@ -84,7 +86,7 @@ def test_packs_endpoint_serves_pack_species_assets(tmp_path: Path, monkeypatch) 
         assert resp.status_code == 200
         packs = resp.json()
         # The builtin cat is NOT served — the client carries it already.
-        assert set(packs) == {"pebble"}
+        assert set(packs) == {"dog", "pig", "pebble"}
         entry = packs["pebble"]
         assert set(entry) == {"svg", "palettes", "geometry", "pronoun"}
         assert entry["pronoun"] == "it"

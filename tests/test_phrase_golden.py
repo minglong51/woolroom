@@ -188,7 +188,7 @@ def _voice_origin_line():
 
 
 def _voice_system_prompt():
-    # adopted_at=None pins the age line at 0.0 pet-years/kitten — a fixed date
+    # adopted_at=None pins the age line at 0.0 pet-years/juvenile — a fixed date
     # would drift the rendering as real time passes.
     pet = Pet(
         id="golden-pet",

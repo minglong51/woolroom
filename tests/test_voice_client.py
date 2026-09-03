@@ -118,7 +118,7 @@ def test_index_has_no_unsubstituted_voice_placeholders(tmp_path: Path, monkeypat
         # Spot-check both surfaces of the shared tagline and a deep one.
         assert resp.text.count("a quiet room, shared.") >= 2
         assert "someone small moved in next door." in resp.text
-        assert "bring a second cat home" in resp.text
+        assert "bring a second pet home" in resp.text
 
 
 def test_voice_coats_match_species_registry(tmp_path: Path, monkeypatch) -> None:

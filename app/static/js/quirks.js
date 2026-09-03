@@ -137,7 +137,7 @@ export const quirkMethods = {
     landingPreviewLine() {
       const who = this.landingPreviewName();
       if (this.hasPendingInvite()) {
-        const petName = this.pendingInvite.pet_name || "the cat";
+        const petName = this.pendingInvite.pet_name || "the pet";
         return `${who} is about to step into ${petName}'s room, where the quiet has already been shared.`;
       }
       return `${who} steps in quietly. the room notices, but it does not make a scene.`;
@@ -151,7 +151,7 @@ export const quirkMethods = {
 
     landingTitle() {
       if (this.hasPendingInvite()) {
-        const petName = this.pendingInvite.pet_name || "the cat";
+        const petName = this.pendingInvite.pet_name || "the pet";
         return `you've been invited to ${petName}.`;
       }
       if (this.openSignup) return "start your room.";
@@ -160,7 +160,7 @@ export const quirkMethods = {
 
     landingCopy() {
       if (this.hasPendingInvite()) {
-        const petName = this.pendingInvite.pet_name || "the cat";
+        const petName = this.pendingInvite.pet_name || "the pet";
         const adoptedBy = this.pendingInvite.adopted_by;
         if (adoptedBy) {
           return `enter your name and you'll join ${petName}, already being cared for by ${adoptedBy}.`;

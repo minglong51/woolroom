@@ -202,6 +202,7 @@
               type="button"
               class="coat-swatch"
               :data-coat="c.id"
+              :style="previewCoatStyle(primaryAdoptionSpecies(), c.id)"
               :class="{ picked: pickedCoat === c.id }"
               :aria-pressed="pickedCoat === c.id"
               :aria-label="c.label"
@@ -459,7 +460,7 @@
           </g>
 
           <!-- bowl: tap = feed; kibble doubles as the partner's trace.
-               When the cat is hungry the bowl glows softly and dashed
+               When the pet is hungry the bowl glows softly and dashed
                kibble outlines ask to be filled. -->
           <g class="bowlg hotspot" @click="woolFeed()" @keydown.enter.prevent="woolFeed()" @keydown.space.prevent="woolFeed()" role="button" tabindex="0" :aria-disabled="guest" aria-label="the bowl — tap to feed">
             <circle cx="76" cy="464" r="28" fill="transparent"/>
@@ -541,7 +542,7 @@
             </g>
             <rect id="dogzone" x="128" y="270" width="144" height="188" fill="transparent"
                   tabindex="0" role="button" :aria-disabled="guest"
-                  :aria-label="(pet?.name || 'the cat') + ' — stroke or tap to pet, double-tap for the zoomies'"/>
+                  :aria-label="(pet?.name || 'the pet') + ' — stroke or tap to pet, double-tap for the zoomies'"/>
           </g>
 
           <!-- a playdate guest: the sibling pet, through the door for a
@@ -570,7 +571,7 @@
           </g>
         </svg>
 
-        <!-- speech as breath: the cat's line floats in the room, then fades.
+        <!-- speech as breath: the pet's line floats in the room, then fades.
              History stays reachable in the memory drawer. aria-live: the
              pet's speech is the product's core output — announce it. -->
         <p class="utter" aria-live="polite" :class="{ show: woolLine || lastResponse }"
@@ -580,7 +581,7 @@
                 @click="showComposer = true">whisper something…</button>
         <form class="composer" x-show="showComposer && !guest" x-cloak @submit.prevent="sendMessage(); showComposer = false">
           <input class="input" type="text" placeholder="leave a quiet note"
-                 x-model="messageText" maxlength="200" :aria-label="'whisper to ' + (pet?.name || 'the cat')">
+                 x-model="messageText" maxlength="200" :aria-label="'whisper to ' + (pet?.name || 'the pet')">
           <button class="ghost send-quiet" :disabled="!messageText.trim() || !!actingAction">send</button>
           <button type="button" class="ghost composer-close" @click="showComposer = false" aria-label="close">×</button>
         </form>
@@ -700,7 +701,7 @@
       <h3>what we've kept</h3>
       <p class="tiny muted" x-show="pet?.origin_line" x-text="pet?.origin_line"></p>
       <p class="tiny muted" x-show="memory">
-        <span x-text="memory?.pet_name || 'the cat'"></span> has shared this room with you for
+        <span x-text="memory?.pet_name || 'the pet'"></span> has shared this room with you for
         <span x-text="memoryDaysLine()"></span>.
       </p>
       <p class="tiny muted" x-show="memory?.first_walk_day">
@@ -766,6 +767,7 @@
             type="button"
             class="coat-swatch"
             :data-coat="c.id"
+            :style="previewCoatStyle(pet?.species || primaryAdoptionSpecies(), c.id)"
             :class="{ picked: (pet?.coat || coatOptions()[0].id) === c.id }"
             :aria-pressed="(pet?.coat || coatOptions()[0].id) === c.id"
             :aria-label="c.label"
@@ -788,6 +790,7 @@
                   type="button"
                   class="coat-swatch"
                   :data-coat="c.id"
+                  :style="previewCoatStyle(secondaryAdoptionSpecies(), c.id)"
                   :class="{ picked: secondCoat === c.id }"
                   :aria-pressed="secondCoat === c.id"
                   :aria-label="c.label"

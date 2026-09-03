@@ -417,29 +417,29 @@ button:disabled { opacity: 0.4; cursor: default; transform: none; }
    --dog-body / --dog-belly / --dog-point recolor the SAME shapes; the vars
    live on the scene (or the adopt preview / a swatch) via data-coat. (The
    var names are historical — the rig contract predates the species swap.) */
-#wool-scene, .adopt-mini-scene, .coat-swatch {
+#wool-scene, .landing-room, .adopt-mini-scene, .coat-swatch {
   --dog-body: #d98f52;   /* marmalade — the default the art is drawn in */
   --dog-belly: #f6ecda;
   --dog-point: #c07a40;
 }
-#wool-scene[data-coat="tuxedo"], .adopt-mini-scene[data-coat="tuxedo"], .coat-swatch[data-coat="tuxedo"] {
+#wool-scene[data-coat="tuxedo"], .landing-room[data-coat="tuxedo"], .adopt-mini-scene[data-coat="tuxedo"], .coat-swatch[data-coat="tuxedo"] {
   --dog-body: #3f3833;
   --dog-belly: #f4ead6;
   --dog-point: #2e2824;
 }
-#wool-scene[data-coat="marmalade"], .adopt-mini-scene[data-coat="marmalade"], .coat-swatch[data-coat="marmalade"] {
+#wool-scene[data-coat="marmalade"], .landing-room[data-coat="marmalade"], .adopt-mini-scene[data-coat="marmalade"], .coat-swatch[data-coat="marmalade"] {
   --dog-body: #d98f52;
   --dog-belly: #f6ecda;
   --dog-point: #c07a40;
 }
-#wool-scene[data-coat="ash"], .adopt-mini-scene[data-coat="ash"], .coat-swatch[data-coat="ash"] {
+#wool-scene[data-coat="ash"], .landing-room[data-coat="ash"], .adopt-mini-scene[data-coat="ash"], .coat-swatch[data-coat="ash"] {
   --dog-body: #8f8a82;
   --dog-belly: #e6e0d2;
   --dog-point: #6e675e;
 }
-#wool-scene .coat, .adopt-mini-scene .coat { fill: var(--dog-body); }
-#wool-scene .cream, .adopt-mini-scene .cream { fill: var(--dog-belly); }
-#wool-scene .point, .adopt-mini-scene .point { fill: var(--dog-point); }
+#wool-scene .coat, .landing-room .coat, .adopt-mini-scene .coat { fill: var(--dog-body); }
+#wool-scene .cream, .landing-room .cream, .adopt-mini-scene .cream { fill: var(--dog-belly); }
+#wool-scene .point, .landing-room .point, .adopt-mini-scene .point { fill: var(--dog-point); }
 
 /* coat choice: quiet swatches, the pick shown as the coat itself */
 .coat-row { display: flex; gap: 8px; align-items: center; margin: 10px 0 4px; }

@@ -538,7 +538,7 @@ async def guest_scene(
     if pet is None:
         raise HTTPException(
             status_code=404,
-            detail="guest demo cat is not available — seed it (scripts/seed_demo_pet.py) and pin GUEST_PET_ID",
+            detail="guest demo pet is not available — seed it (scripts/seed_demo_pet.py) and pin GUEST_PET_ID",
         )
     response.headers["Cache-Control"] = "private, no-store"
     return {

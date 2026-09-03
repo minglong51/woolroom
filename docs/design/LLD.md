@@ -344,7 +344,8 @@ code is right and this doc is stale.
 
 ## Workspace, container, and CI integration
 
-- Root `pyproject.toml` — the application keeps its direct `PyYAML`
+- Root `pyproject.toml` — the application uses the PEP 639-capable
+  `setuptools>=77` backend floor and keeps its direct `PyYAML`
   declaration, pins the compatible `woolpack==0.2.0`, packages `app.static`,
   the canonical dog/pig profile data under `app.packs`, and the public
   `woolroom` namespace, and declares

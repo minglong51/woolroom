@@ -84,6 +84,21 @@ Every path above works with zero API keys. All configuration is environment
 variables; [.env.example](.env.example) documents each one, including the
 optional site-access password for a private deployment.
 
+Woolroom ships cat, dog, and pig as public core profiles. Cat remains the
+default; a host can choose the two adoption identities without copying code or
+supplying pack paths:
+
+```sh
+docker run --rm -p 8000:8000 \
+  -e ADOPT_PRIMARY_SPECIES=dog -e ADOPT_PRIMARY_COAT=red \
+  -e ADOPT_SECONDARY_SPECIES=pig -e ADOPT_SECONDARY_COAT=pink \
+  woolroom
+```
+
+Python consumers use the same boundary through
+`woolroom.create_app(adoption_defaults=AdoptionDefaults(...))`; trusted private
+cards and database lookups remain a separate provider concern.
+
 ### Guest visits
 
 A deployment can open a read-only window on its room: set
@@ -116,6 +131,8 @@ the loader validates behind fail-closed gates at boot. Packs are data,
 never code: no scripting, no CSS, no runtime download.
 
 - The authoring guide is [docs/packs.md](docs/packs.md).
+- `app/packs/profiles/dog` and `app/packs/profiles/pig` are packaged public
+  profiles; their species ids are reserved and always available to hosts.
 - [packs/pebble](packs/pebble) is the shipped example — a pet rock,
   deliberately minimal.
 
@@ -154,4 +171,5 @@ pays for itself even at zero external packs.
 
 ## License
 
-[MIT](LICENSE) — copyright 2026 woolroom contributors.
+Code is [MIT](LICENSE). Bundled public pet profiles and the Woolpack template
+are [CC0-1.0](packages/woolpack/LICENSE-CC0).

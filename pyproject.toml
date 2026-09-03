@@ -4,6 +4,8 @@ version = "0.2.0"
 description = "A shared ambient pet — one quiet animal in a small room, kept by two people."
 readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT AND CC0-1.0"
+license-files = ["LICENSE", "packages/woolpack/LICENSE-CC0"]
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
@@ -30,7 +32,7 @@ dev = [
 ]
 
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
@@ -38,6 +40,12 @@ include = ["app*", "woolroom*"]
 
 [tool.setuptools.package-data]
 app = ["static/*", "static/**/*"]
+"app.packs" = [
+    "profiles/*/*.yaml",
+    "profiles/*/phrases/*.yaml",
+    "profiles/*/species/*.svg",
+    "profiles/*/species/*.yaml",
+]
 woolroom = ["py.typed", "migrations/README", "migrations/script.py.mako"]
 
 [tool.uv.workspace]

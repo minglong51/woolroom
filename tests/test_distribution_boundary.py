@@ -19,6 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 def test_public_distribution_api_is_exposed() -> None:
     public_api = {
+        "AdoptionDefaults",
         "DEFAULT_AUTH_NAMESPACE",
         "PLUGIN_API_VERSION",
         "AuthNamespace",
@@ -104,6 +105,7 @@ def test_packaged_migrations_have_one_head_and_upgrade_sqlite(
 
 def test_source_static_assets_are_present() -> None:
     static_dir = files("app").joinpath("static")
+    profile_dir = files("app.packs").joinpath("profiles")
     package_dir = files("woolroom")
 
     assert package_dir.joinpath("py.typed").is_file()
@@ -111,3 +113,8 @@ def test_source_static_assets_are_present() -> None:
     assert static_dir.joinpath("index.html").is_file()
     assert static_dir.joinpath("app.js").is_file()
     assert static_dir.joinpath("style.css").is_file()
+    for species in ("dog", "pig"):
+        pack_dir = profile_dir.joinpath(species)
+        assert pack_dir.joinpath("pack.yaml").is_file()
+        assert pack_dir.joinpath("phrases", f"{species}.yaml").is_file()
+        assert pack_dir.joinpath("species", f"{species}.svg").is_file()
