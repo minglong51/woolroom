@@ -425,6 +425,7 @@ button:disabled { opacity: 0.4; cursor: default; transform: none; }
 .ballg { filter: url(#object-depth); }
 .guest-lantern,
 .guest-postcard { filter: url(#object-depth); }
+.guest-lantern { opacity: .48; }
 .guest-lamp-pool { opacity: .48; }
 .guest-lamp-pool-far,
 .guest-lantern-far { opacity: .48; }
@@ -1563,7 +1564,11 @@ button:disabled { opacity: 0.4; cursor: default; transform: none; }
   .ballg, .kibbleg circle, .rugwarm, .leashg, #dogmove,
   .brushstreak, .ruglump, .phone-trace, .heartg, .utter,
   .sunbtn, .moonbtn, .mini-dog, .mini-shadow, .mini-eye,
-  .mini-mote, .mini-stash { transition: none !important; }
+  .mini-mote, .mini-stash,
+  .glass-tap, .room-controls-summary, .room-controls-summary::after,
+  .access-pet { transition: none !important; animation: none !important; }
+  .glass-tap:active { transform: none; }
+  .room-controls[open] .room-controls-summary::after { transform: rotate(180deg); }
   button,
   [x-transition] {
     animation: none !important;

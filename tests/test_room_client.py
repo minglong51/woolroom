@@ -12,6 +12,7 @@ STYLE_CSS = ROOT / "app" / "static" / "style.css"
 UI_JS = ROOT / "app" / "static" / "js" / "ui.js"
 PRESENCE_JS = ROOT / "app" / "static" / "js" / "presence.js"
 API_JS = ROOT / "app" / "static" / "js" / "api.js"
+WOOL_JS = ROOT / "app" / "static" / "js" / "wool.js"
 
 
 def _run_modules(
@@ -51,7 +52,17 @@ def test_guest_room_interactions_are_explicitly_local_or_disabled() -> None:
         markup,
     )
 
-    for class_name in ("sunbtn", "moonbtn", "leashg", "bowlg", "ballg"):
+    for class_name in ("sunbtn", "moonbtn"):
+        tag = re.search(
+            rf'<g\b(?=[^>]*class="[^"]*\b{class_name}\b)[^>]*>',
+            markup,
+        )
+        assert tag is not None
+        assert 'tabindex="0"' in tag.group()
+        assert "aria-disabled" not in tag.group()
+        assert 'woolSkyTap()' in tag.group()
+
+    for class_name in ("leashg", "bowlg", "ballg"):
         tag = re.search(
             rf'<g\b(?=[^>]*class="[^"]*\b{class_name}\b)[^>]*>',
             markup,
@@ -109,6 +120,20 @@ def test_guest_room_interactions_are_explicitly_local_or_disabled() -> None:
     assert 'class="guest-warm-trace"' in markup
     assert 'x-text="guestPublicStory().kicker"' in markup
     assert 'x-text="guestPublicStory().line"' in markup
+    assert ".guest-lantern { opacity: .48; }" in css
+
+    reduced_motion_start = css.index(
+        "@media (prefers-reduced-motion: reduce)", css.index(".glass-tap")
+    )
+    reduced_motion_end = css.index("/* ─────────────────────── the playdate guest", reduced_motion_start)
+    reduced_motion = css[reduced_motion_start:reduced_motion_end]
+    assert ".glass-tap, .room-controls-summary, .room-controls-summary::after," in reduced_motion
+    assert ".access-pet { transition: none !important; animation: none !important; }" in reduced_motion
+    assert ".glass-tap:active { transform: none; }" in reduced_motion
+    assert (
+        ".room-controls[open] .room-controls-summary::after { transform: rotate(180deg); }"
+        in reduced_motion
+    )
 
 
 def test_guest_story_and_glass_gesture_are_local_and_synthetic(
@@ -116,11 +141,12 @@ def test_guest_story_and_glass_gesture_are_local_and_synthetic(
 ) -> None:
     result = _run_modules(
         tmp_path,
-        {"ui": UI_JS, "presence": PRESENCE_JS},
+        {"ui": UI_JS, "presence": PRESENCE_JS, "wool": WOOL_JS},
         r"""
 const modules = JSON.parse(process.env.ROOM_MODULES);
 const {uiMethods} = await import(modules.ui);
 const {presenceMethods} = await import(modules.presence);
+const {sceneMethods} = await import(modules.wool);
 
 const sideEffects = [];
 const timers = [];
@@ -145,6 +171,14 @@ const guest = {
 };
 uiMethods._guestToast.call(guest);
 
+const skySaid = [];
+globalThis.document = {
+  getElementById() { return {dataset: {time: "day"}}; },
+};
+sceneMethods.woolSkyTap.call({
+  _woolSay(line, duration) { skySaid.push([line, duration]); },
+});
+
 const originalNow = Date.now;
 const day = 86_400_000;
 const base = Date.UTC(2026, 8, 1);
@@ -162,6 +196,7 @@ process.stdout.write(JSON.stringify({
   sideEffects,
   timers: timers.map(({delay}) => delay),
   said,
+  skySaid,
   notice: guest.guestNoticeFlash,
   stories,
 }));
@@ -171,6 +206,7 @@ process.stdout.write(JSON.stringify({
     assert result["sideEffects"] == []
     assert result["timers"] == [900]
     assert result["said"] == [["Pebble noticed you.", 2200]]
+    assert result["skySaid"] == [["the sun is doing its one quiet job.", 3000]]
     assert result["notice"] is True
     stories = result["stories"]
     assert isinstance(stories, list)
