@@ -8,10 +8,8 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 
-from app.auth.session import COOKIE_NAME, load_user
+from app.auth.session import load_user
 from app.auth.site_access import (
-    GUEST_ACCESS_COOKIE,
-    SITE_ACCESS_COOKIE,
     has_guest_access,
     has_site_access,
 )
@@ -65,18 +63,25 @@ async def ws_scene(ws: WebSocket) -> None:
     if not _origin_allowed(ws):
         await ws.close(code=status.WS_1008_POLICY_VIOLATION)
         return
-    guest = has_guest_access(ws.cookies.get(GUEST_ACCESS_COOKIE))
-    site_access = has_site_access(ws.cookies.get(SITE_ACCESS_COOKIE))
+    namespace = ws.app.state.auth_namespace
+    guest = has_guest_access(
+        ws.cookies.get(namespace.guest_access_cookie),
+        namespace=namespace,
+    )
+    site_access = has_site_access(
+        ws.cookies.get(namespace.site_access_cookie),
+        namespace=namespace,
+    )
     if not site_access and guest:
         await _ws_guest_scene(ws)
         return
     if not site_access:
         await ws.close(code=status.WS_1008_POLICY_VIOLATION)
         return
-    cookie = ws.cookies.get(COOKIE_NAME)
+    cookie = ws.cookies.get(namespace.session_cookie)
     requested_pet_id = ws.query_params.get("pet")
     async with SessionLocal() as session:
-        user = await load_user(session, cookie)
+        user = await load_user(session, cookie, namespace=namespace)
         if user and requested_pet_id:
             # Room-scoped socket: the client picks which room it's watching.
             # Unconfirmed (ceremony-pending) rooms refuse, same as REST.

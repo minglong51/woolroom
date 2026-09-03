@@ -1,6 +1,6 @@
 [project]
 name = "woolpack"
-version = "0.1.1"
+version = "0.2.0"
 description = "Standalone validation and authoring tools for Woolroom content packs."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -33,6 +33,7 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.setuptools.package-data]
+"woolpack" = ["py.typed"]
 "woolpack.resources" = [
     "style.css",
     "pebble/*.yaml",

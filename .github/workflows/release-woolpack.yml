@@ -74,6 +74,10 @@ jobs:
           from zipfile import ZipFile
 
           with ZipFile(os.environ["WOOLPACK_WHEEL"]) as archive:
+              if "woolpack/cards.py" not in archive.namelist():
+                  raise SystemExit("wheel is missing the pet-card contract")
+              if "woolpack/py.typed" not in archive.namelist():
+                  raise SystemExit("wheel is missing its typing marker")
               metadata_name = next(
                   name for name in archive.namelist() if name.endswith(".dist-info/METADATA")
               )
@@ -103,6 +107,8 @@ jobs:
             uv pip install --python "$smoke_root/venv/bin/python" "$artifact"
             woolpack="$smoke_root/venv/bin/woolpack"
             test "$("$woolpack" --version)" = "woolpack ${WOOLPACK_VERSION}"
+            "$smoke_root/venv/bin/python" -c \
+              'from woolpack import PET_CARD_SCHEMA_VERSION; assert PET_CARD_SCHEMA_VERSION == 1'
             "$woolpack" new releasepet --dest "$smoke_root/releasepet" --author release --license MIT
             "$woolpack" render "$smoke_root/releasepet" -o "$smoke_root/releasepet.html"
             test -s "$smoke_root/releasepet.html"

@@ -60,7 +60,7 @@ def test_alembic_head_matches_models(tmp_path: Path, monkeypatch) -> None:
     alembic_db = tmp_path / "alembic.db"
     monkeypatch.setattr(settings, "database_url", f"sqlite+aiosqlite:///{alembic_db}")
     cfg = Config(str(REPO_ROOT / "alembic.ini"))
-    cfg.set_main_option("script_location", str(REPO_ROOT / "migrations"))
+    cfg.set_main_option("script_location", str(REPO_ROOT / "woolroom" / "migrations"))
     command.upgrade(cfg, "head")
 
     models_schema = _schema(models_db)

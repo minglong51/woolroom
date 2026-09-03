@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-09-02 (access redirect and guest-to-owner boundary)
+**Refreshed:** 2026-09-02 (installable core and private card-overlay boundary)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -13,13 +13,16 @@ code is right and this doc is stale.
   is an env var: `SECRET_KEY`, `SITE_PASSWORD`, `DATABASE_URL`, `BASE_URL`,
   `HOME_TZ`, `ENV`, LLM lane (`LLM_PROVIDER` disabled/anthropic/ollama,
   model/token/timeout, `LLM_DAILY_CALL_CAP`), memory caps,
-  `ADOPT_ALLOWLIST`, `PACK_PATHS` (CSV of local pack dirs),
+  `ADOPT_ALLOWLIST`, `PACK_PATHS` (CSV of public local pack dirs),
   household shape (`HOUSEHOLD_SIZE` pinned `!= 2` raises — pair-shaped by
   design; `MAX_ROOMS_PER_HOUSEHOLD`, `QUIRK_PICK_COUNT`), guest mode
   (`GUEST_ACCESS_ENABLED`, `GUEST_PET_ID`), `ADMIN_TOKEN`, `OPEN_SIGNUP`.
   Prod validators: strong secret required, only metered `sk-ant-api` keys,
   guest mode requires a pinned pet.
-- `main.py` — FastAPI entry. Lifespan: `load_packs(settings.pack_paths)`
+- `main.py` — FastAPI entry. `create_app(overlay_provider=...,
+  auth_namespace=...)` installs the trusted provider or a default empty
+  provider and stores the validated auth namespace on app state. Lifespan: provider
+  startup/shutdown around the app resources; `load_packs(settings.pack_paths)`
   first (fail-closed; boot refuses on gate violations), boot refusal when
   `SITE_PASSWORD`/guest access is enabled over the default `SECRET_KEY`
   (the gate cookies would be forgeable in any ENV), dev-only
@@ -36,7 +39,8 @@ code is right and this doc is stale.
   Serves `/` with `INDEX_VOICE` substituted and
   `?v=<APP_VERSION>` cache-busted statics (immutable when the version
   matches, revalidate otherwise); `/api/voice` and `/api/packs` ride the
-  same two cache policies. `APP_VERSION` = `GIT_SHA` or newest static mtime.
+  same two cache policies. Those endpoints contain public distribution data
+  only. `APP_VERSION` = `GIT_SHA` or newest static mtime.
 - `time.py` — shared UTC helpers (naive-UTC storage convention).
 - `room_contract.py` — `FX_VOCAB_VERSION` + `FX_MODES` (the only legal
   scene-fx modes) + `TRACE_CUE_MAP` (shared-trace → ambient cue) +
@@ -111,7 +115,7 @@ code is right and this doc is stale.
 - `quirks_catalog.py` — the eight builtin quirks as plain data (label,
   description, `behavior` rules per channel).
 
-## `app/packs/` — application adapter for pack format v1
+## `app/packs/` — public application adapter for pack format v1
 
 - `loader.py` — owns runtime registration, not data validation.
   `pack_environment()` snapshots the live engine contract (fx modes, action/
@@ -121,6 +125,8 @@ code is right and this doc is stale.
   that pure, fail-closed call succeeds does it register species, phrase
   overlays, quirks, voice, and client assets. Exposes `LOADED_PACKS`,
   `PACK_ASSETS`, `load_packs(paths)`, and `client_pack_assets()` for the API.
+  Every `PACK_PATHS` entry is public; private providers never call this
+  registration path.
 - `sanitize.py` — compatibility re-export of the standalone sanitizer so
   existing application and test imports keep one implementation.
 - `lint.py` — compatibility re-export of the standalone authoring checker;
@@ -128,18 +134,25 @@ code is right and this doc is stale.
 
 ## `packages/woolpack/` — standalone pack contract and authoring wheel
 
-- `pyproject.toml` — independently buildable `woolpack` 0.1 distribution,
+- `pyproject.toml` — independently buildable `woolpack` 0.2 distribution,
   Python ≥3.11, with only PyYAML as a runtime dependency and console entry
   point `woolpack = woolpack.cli:main`. Its package README supplies the PyPI
   long description and links the owned product page, format guide, source,
   issues, and pack index. Setuptools includes the resource package (room CSS
   plus the Pebble scaffold) in the wheel. Distribution metadata declares
   `MIT AND CC0-1.0` and ships both texts: MIT covers the tool code, while the
-  bundled Pebble template declares CC0.
+  bundled Pebble template declares CC0. Its PEP 561 marker publishes the
+  card and environment types to external type checkers.
 - `src/woolpack/contract.py` — frozen `PackEnvironment`: the engine-owned
   vocabularies and occupied ids against which otherwise standalone pack
   data is checked. `DEFAULT_ENVIRONMENT` mirrors the shipped woolroom
   engine; CI asserts exact equality with `app.packs.loader.pack_environment()`.
+- `src/woolpack/cards.py` — `PetCardV1`, the exact versioned browser
+  projection a trusted site provider may return. `parse_pet_card()` rejects
+  missing/extra fields, malformed identifiers, palettes, geometry, and SVG;
+  sanitizes and byte-caps the figure; and freezes nested maps.
+  `pet_card_payload()` emits a fresh JSON-compatible copy of only the eight
+  allowed fields.
 - `src/woolpack/validation.py` — the pure fail-closed contract.
   `validate_pack(path, *, environment=DEFAULT_ENVIRONMENT) -> ValidatedPack`
   enforces manifest, confinement/symlink, byte/prose, safe-YAML, SVG,
@@ -148,8 +161,10 @@ code is right and this doc is stale.
   `PackRecord`, species, overlays, quirks, voice, raw SVGs, and environment
   for the application adapter or authoring tools to consume.
 - `src/woolpack/sanitize.py` — stdlib allowlist SVG sanitizer: elements
-  outside the allowed set drop with their subtree; `on*`, `href`, and
-  `style` containing `url(` are stripped; the root must be one `<g>`/`<svg>`;
+  outside the allowed set drop with their subtree; event handlers, hrefs,
+  Alpine directives, CSS escapes, and URL-bearing values on any attribute
+  are stripped while inert v1 attributes remain compatible. The root must
+  be one `<g>`/`<svg>`;
   DTD/entity declarations and over-deep nesting fail as `SvgSanitizeError`.
 - `src/woolpack/lint.py` — `lint_pack(path) -> LintReport` runs standalone
   validation, then checks rig/eye/palette handles, stray ids, sanitizer
@@ -178,7 +193,15 @@ code is right and this doc is stale.
   `/r/{token}` recovery, `/api/recovery-url` — the login bookmark on
   demand; `/api/me` deliberately does not carry it), `/api/action` (the interaction verb),
   `/api/visit(+end)`, aliases/coat, memory pin/unseen/read, guest
-  `/api/guest/scene`. `/api/action` holds the mutation guard and
+  `/api/guest/scene`. Authenticated `/api/me` and cookie-authorized
+  `/api/guest/scene` add a top-level `card` from their distinct provider
+  method after validating its pet binding, exact schema, species, and coat;
+  null is the direct-hosting default. Pet-scoped `/api/card` safely refreshes
+  that projection after realtime identity changes without relying on a
+  cross-device active-room pointer. `/api/room` and `/api/coat` return the
+  newly bound card with their mutation response. These dynamic card responses
+  are `private, no-store`.
+  `/api/action` holds the mutation guard and
   delegates to `runtime/actions.py`. Signup is invite-only
   (`OPEN_SIGNUP` off) with one
   designed exception: an empty users table admits the first human — a fresh
@@ -189,12 +212,16 @@ code is right and this doc is stale.
   merge/delete, recovery-link regenerate/revoke, llm stats. Split from
   `http.py` so the ops surface and the product surface read apart.
 - `api/ws.py` — `/ws` scene socket: initial `pet_state` push, then
-  `pet_state`/`presence` messages; cookie-authed.
-- `api/deps.py` — session-cookie user/pet dependencies.
-- `auth/session.py` — signed `woolroom_session` cookie (itsdangerous); no
-  email, no password.
-- `auth/site_access.py` — optional outer password gate (`woolroom_site_access`
-  timed cookie) and read-only guest cookie (`woolroom_guest_access`).
+  `pet_state`/`presence` messages; reads the app's configured auth namespace.
+- `api/deps.py` — session-cookie user/pet dependencies; cookie lookup is
+  request/app-scoped rather than a module-import-time alias.
+- `auth/session.py` — signed session cookie (itsdangerous); no email or
+  password. Helper defaults retain `woolroom_session` compatibility while
+  request paths pass the app namespace through signing and verification.
+- `auth/site_access.py` — optional outer password gate and read-only guest
+  cookie. Default helpers retain the `woolroom_site_access` and
+  `woolroom_guest_access` names; composed apps pass their distinct names and
+  salts explicitly.
 - `channels/base.py` — `Channel` protocol (how the pet reaches a human).
 - `channels/webapp.py` — the WebApp channel: in-process WS fanout keyed by
   pet_id, plus per-pet mutation guards.
@@ -224,30 +251,54 @@ code is right and this doc is stale.
   guest-first access threshold with invite-aware owner disclosure. `style.css`
   — the room's look + rig animation classes.
   `favicon.svg` — the cat mark. `app.js` — boot glue.
-- `js/state.js` + `js/api.js` — Alpine store and REST/WS client calls.
+- `js/state.js` + `js/api.js` — Alpine store and REST/WS client calls; the
+  active provider card is held separately from the public packs registry and
+  atomically replaced with room/coat transitions.
 - `js/wool.js` — the scene core: boot, the light-not-dye clock, motion
   primitives and locomotion, touch resolution, presentation reads
-  (traces, rig style, poses). Its former siblings, same component
+  (traces, rig style, poses). A matching card supplies the active pet's
+  pronoun. Its former siblings, same component
   `this`: `js/woolvisits.js` (the door next door + playdate
   choreography), `js/woolevents.js` (scene-event dedupe, return cues,
   the drain queue and plan runner), `js/woolfx.js` (fx primitives +
   the verb performances).
 - `js/figures.js` — figure art + the rig class contract (the builtin cat;
-  pack figures satisfy the same contract) and coat palette application.
+  pack figures satisfy the same contract) and coat palette application. A
+  matching active card is resolved as a one-pet ephemeral catalog and never
+  merged into the public `/api/packs` map.
 - `js/sound.js` — WebAudio synth: per-species motifs (the cat voice) and
   room sounds; no audio assets.
-- `js/ws.js` — the live channel, reconnects, shared-trace cue derivation
-  (mirrors `TRACE_CUE_MAP`; pinned by `tests/test_room_contract.py`).
+- `js/ws.js` — the live channel, reconnects, pet-scoped card refresh after a
+  realtime species/coat change, stale old-room frame rejection, and
+  shared-trace cue derivation (mirrors `TRACE_CUE_MAP`; pinned by
+  `tests/test_room_contract.py`).
 - `js/presence.js`, `js/memory.js`, `js/quirks.js`, `js/ui.js` — presence
   pill, memory/moments views, quirk pick + adopt flow, misc UI.
 - `vendor/` — vendored Alpine; third-party, not covered by this contract.
 
-## `migrations/` — alembic
+## `woolroom/` — public composition and migration package
 
-`env.py` + `versions/`. Alembic is the only thing that touches schema in a
-deployed environment; `scripts/migrate.py` runs `alembic upgrade head` at
-container start (idempotent). Individual revision files are generated and
-carry no independent contract.
+- `__init__.py` — stable consumer import: package version,
+  `PLUGIN_API_VERSION`, `create_app(overlay_provider=..., auth_namespace=...)`,
+  `AuthNamespace`, `BoundPetCard`, provider types, and `migration_path()` for
+  installed-wheel Alembic adoption.
+  The package's PEP 561 marker makes this composition surface typed for
+  consumers.
+- `auth.py` — frozen cookie/salt namespace for session, site-access, guest,
+  and pending-invite flows. Values are bounded safe ASCII; cookie names and
+  signing salts must each be pairwise distinct. `DEFAULT_AUTH_NAMESPACE`
+  pins direct-hosting behavior.
+- `overlay.py` — narrow immutable owner/guest subjects, async provider
+  lifecycle/protocol, empty direct-hosting implementation, and the
+  parse-again subject-binding boundary. Providers return `BoundPetCard`; core
+  verifies and strips its pet id before emitting the exact `PetCardV1` DTO.
+  Provider exceptions, unknown card fields, and pet/species/coat mismatches
+  fail closed.
+- `migrations/` — packaged Alembic `env.py`, template, and `versions/`.
+  Alembic is the only thing that touches schema in a deployed environment;
+  `scripts/migrate.py` runs `alembic upgrade head` at container start
+  (idempotent). Individual revision files are generated and carry no
+  independent contract.
 
 ## `scripts/` — operator CLIs and checkout-compatible authoring shims
 
@@ -277,22 +328,29 @@ carry no independent contract.
 ## Workspace, container, and CI integration
 
 - Root `pyproject.toml` — the application keeps its direct `PyYAML`
-  declaration, pins the compatible `woolpack==0.1.1`, and declares
+  declaration, pins the compatible `woolpack==0.2.0`, packages `app.static`
+  and the public `woolroom` namespace, and declares
   `packages/woolpack` as a uv workspace member/source. `uv.lock` therefore
   resolves the app and tool distribution as one locked local graph while the
   child project remains independently buildable; a child contract-version
   bump must move the application pin deliberately.
-- `Dockerfile` — copies the child project metadata and `src/` tree before
-  dependency installation, then installs both local editable projects in one
-  pip transaction. The runtime image therefore never resolves an unrelated
-  registry package named `woolpack`.
+- `Dockerfile` — copies root metadata/readme plus the child project metadata
+  and `src/` tree before dependency installation, then installs both local
+  editable projects in one pip transaction; it also copies the public
+  composition/migration package.
+  The runtime image therefore never resolves an unrelated registry package
+  named `woolpack`.
 - `.github/workflows/ci.yml` — after locked workspace sync, the standalone
   boundary smoke compares the packaged style/template with their canonical
   app/repository copies, AST-checks every package module for forbidden
   `app.*` imports, and asserts default/application `PackEnvironment` parity.
   It then builds and metadata-checks wheel and source distributions, installs
   each into an isolated venv, and exercises `--version`, scaffold, render, and
-  strict lint without the woolroom app.
+  strict lint without the woolroom app. The core distribution smoke builds
+  Woolroom wheel/source artifacts beside the exact Woolpack wheel, verifies
+  package/dependency version parity and required static/migration/card/auth files,
+  installs each core artifact in isolation, exercises the stable composition API, and runs
+  packaged Alembic migrations against synthetic SQLite.
 - `.github/workflows/release-woolpack.yml` — a published GitHub release whose
   tag starts with `woolpack-v` checks out the event SHA with full history,
   requires the tag version to match package metadata, and requires that SHA

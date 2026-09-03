@@ -21,8 +21,6 @@ from app.api.admin import router as admin_router
 from app.api.http import router as http_router
 from app.api.ws import router as ws_router
 from app.auth.site_access import (
-    GUEST_ACCESS_COOKIE,
-    SITE_ACCESS_COOKIE,
     clear_guest_access_cookie,
     clear_site_access_cookie,
     guest_access_enabled,
@@ -39,6 +37,8 @@ from app.packs import client_pack_assets, load_packs
 from app.scheduler.jobs import start_scheduler
 from app.storage.db import engine
 from app.storage.models import Base
+from woolroom.auth import DEFAULT_AUTH_NAMESPACE, AuthNamespace
+from woolroom.overlay import CatalogOverlayProvider, EmptyCatalogOverlayProvider
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -65,7 +65,14 @@ def _compute_app_version() -> str:
 
 APP_VERSION = _compute_app_version()
 SITE_ACCESS_ALLOWLIST = {"/healthz", "/access", "/api/site-access", "/api/guest-access"}
-GUEST_HTTP_ALLOWLIST = {"/", "/api/me", "/api/guest/scene", "/api/voice", "/api/packs"}
+GUEST_HTTP_ALLOWLIST = {
+    "/",
+    "/api/card",
+    "/api/guest/scene",
+    "/api/me",
+    "/api/packs",
+    "/api/voice",
+}
 
 
 def _safe_access_next(value: str | None) -> str:
@@ -230,7 +237,7 @@ async def lifespan(app: FastAPI):
             "SITE_PASSWORD / guest access require a real SECRET_KEY (their "
             "cookies are signed with it); set SECRET_KEY to a random value"
         )
-    # Woolroom content packs (format v1): load + register species, phrase
+    # Woolroom public content packs (format v1): load + register species, phrase
     # overlays, quirks, and voice BEFORE any request is served; the
     # registries are frozen again afterwards. PACK_PATHS defaults to empty
     # (a no-op); any gate violation raises a named PackError and refuses boot.
@@ -244,17 +251,36 @@ async def lifespan(app: FastAPI):
             await conn.run_sync(_ensure_coat_column)
             await conn.run_sync(_ensure_demo_column)
             await conn.run_sync(_ensure_household_columns)
-    sched = start_scheduler()
+    provider = app.state.catalog_overlay_provider
+    sched = None
     try:
+        await provider.startup()
+        sched = start_scheduler()
         yield
     finally:
-        sched.shutdown(wait=False)
-        await engine.dispose()
+        try:
+            if sched is not None:
+                sched.shutdown(wait=False)
+        finally:
+            try:
+                await provider.shutdown()
+            finally:
+                await engine.dispose()
 
 
-def create_app() -> FastAPI:
+def create_app(
+    *,
+    overlay_provider: CatalogOverlayProvider | None = None,
+    auth_namespace: AuthNamespace | None = None,
+) -> FastAPI:
     app = FastAPI(title="woolroom", lifespan=lifespan)
     app.state.auth_failures = {}
+    app.state.auth_namespace = (
+        auth_namespace if auth_namespace is not None else DEFAULT_AUTH_NAMESPACE
+    )
+    app.state.catalog_overlay_provider = (
+        overlay_provider if overlay_provider is not None else EmptyCatalogOverlayProvider()
+    )
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
@@ -286,17 +312,24 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def site_access_gate(request: Request, call_next):
         path = request.url.path
+        namespace = request.app.state.auth_namespace
         request.state.guest = False
         if not site_access_enabled() or _site_access_exempt(path):
             return await call_next(request)
 
-        if has_site_access(request.cookies.get(SITE_ACCESS_COOKIE)):
+        if has_site_access(
+            request.cookies.get(namespace.site_access_cookie),
+            namespace,
+        ):
             return await call_next(request)
 
         # Read-only guests pass the outer gate with their own cookie — every
         # private surface beyond this still requires a real session, and the
         # guest endpoints serve only the sanitized scene.
-        if has_guest_access(request.cookies.get(GUEST_ACCESS_COOKIE)):
+        if has_guest_access(
+            request.cookies.get(namespace.guest_access_cookie),
+            namespace,
+        ):
             request.state.guest = True
             if path in GUEST_HTTP_ALLOWLIST:
                 return await call_next(request)
@@ -368,9 +401,13 @@ def create_app() -> FastAPI:
 
     @app.get("/access", name="site_access_page", response_model=None)
     async def access(request: Request) -> Response:
+        namespace = request.app.state.auth_namespace
         if not site_access_enabled():
             return RedirectResponse(url="/", status_code=303)
-        if has_site_access(request.cookies.get(SITE_ACCESS_COOKIE)):
+        if has_site_access(
+            request.cookies.get(namespace.site_access_cookie),
+            namespace,
+        ):
             next_values = request.query_params.getlist("next")
             next_value = next_values[0] if len(next_values) == 1 else None
             return RedirectResponse(
@@ -387,33 +424,34 @@ def create_app() -> FastAPI:
         return resp
 
     @app.post("/api/site-access")
-    async def grant_site_access(body: SiteAccessIn) -> JSONResponse:
+    async def grant_site_access(body: SiteAccessIn, request: Request) -> JSONResponse:
         if not site_access_enabled():
             return JSONResponse({"ok": True})
         if not verify_site_password(body.password):
             raise HTTPException(status_code=401, detail="access denied")
         resp = JSONResponse({"ok": True})
         resp.headers["Cache-Control"] = "no-store"
-        set_site_access_cookie(resp)
-        clear_guest_access_cookie(resp)
+        namespace = request.app.state.auth_namespace
+        set_site_access_cookie(resp, namespace)
+        clear_guest_access_cookie(resp, namespace)
         return resp
 
     @app.post("/api/site-access/logout")
-    async def revoke_site_access() -> JSONResponse:
+    async def revoke_site_access(request: Request) -> JSONResponse:
         resp = JSONResponse({"ok": True})
-        clear_site_access_cookie(resp)
+        clear_site_access_cookie(resp, request.app.state.auth_namespace)
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
     @app.post("/api/guest-access")
-    async def grant_guest_access() -> JSONResponse:
+    async def grant_guest_access(request: Request) -> JSONResponse:
         """Mint a read-only guest cookie. No password, no session — the cookie
         only proves guest status and unlocks the sanitized scene."""
         if not guest_access_enabled():
             raise HTTPException(status_code=404, detail="guest access is not open")
         resp = JSONResponse({"ok": True, "guest": True})
         resp.headers["Cache-Control"] = "no-store"
-        set_guest_access_cookie(resp)
+        set_guest_access_cookie(resp, request.app.state.auth_namespace)
         return resp
 
     @app.get("/api/voice")

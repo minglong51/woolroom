@@ -39,6 +39,7 @@ export const apiMethods = {
       const data = await r.json();
       this.user = data.user;
       this.guest = !!data.guest;
+      this.card = data.card || null;
       this.aliasMap = (data.user && data.user.partner_aliases) || {};
       this.pet = data.pet;
       this.pets = data.pets || [];
@@ -98,6 +99,7 @@ export const apiMethods = {
           return;
         }
         const data = await r.json();
+        this.card = data.card || null;
         this.pet = data.pet;
         this._applyPetState(this.pet);
         this.view = "scene";
@@ -211,7 +213,11 @@ export const apiMethods = {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ coat }),
         });
-        if (r.ok) this.pet = { ...this.pet, coat };
+        if (r.ok) {
+          const data = await r.json();
+          this.card = data.card || null;
+          this.pet = { ...this.pet, coat: data.coat };
+        }
       } catch (_) { /* keeps the old wool; try again from settings */ }
     },
     async sendMessage() {
@@ -314,11 +320,11 @@ export const apiMethods = {
         });
         if (!r.ok) return;
         const data = await r.json();
-        this._applyRoomSwitch(data.pet);
+        this._applyRoomSwitch(data.pet, data.card || null);
       } catch (_) { /* the door stays shut on a bad connection */ }
     },
 
-    _applyRoomSwitch(newPet) {
+    _applyRoomSwitch(newPet, newCard) {
       if (!newPet?.id) return;
       try { localStorage.setItem("woolroom_door_known", "1"); } catch (_) {}
       const prevId = this.pet?.id;
@@ -326,6 +332,7 @@ export const apiMethods = {
       // _applyPetState otherwise diffs the new visit against itself and the
       // playdate beats never fire for the one who followed through the door.
       const prevVisit = this.pet?.visit || null;
+      this.card = newCard || null;
       this.pet = newPet;
       this.activePetId = newPet.id;
       this.woolLine = "";
@@ -341,7 +348,11 @@ export const apiMethods = {
       this._applyPetState(newPet, prevVisit);
       // Re-aim the realtime lane at the new room.
       if (this.ws) {
-        try { this.ws.onclose = null; this.ws.close(); } catch (_) {}
+        try {
+          this.ws.onmessage = null;
+          this.ws.onclose = null;
+          this.ws.close();
+        } catch (_) {}
         this.ws = null;
       }
       this.connectWs();

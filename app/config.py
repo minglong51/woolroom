@@ -44,9 +44,11 @@ class Settings(BaseSettings):
 
     adopt_allowlist: str = ""
 
-    # Woolroom content packs (pack format v1): comma-separated local
+    # Woolroom public content packs (pack format v1): comma-separated local
     # directories, loaded + registered at boot by app/packs/loader.py behind
     # fail-closed sanitization gates. Empty = no packs, behavior unchanged.
+    # Every loaded pack is served through the public voice/asset catalogs.
+    # Private site content must use the trusted catalog overlay provider.
     # NoDecode: env carries a CSV string (like ADOPT_ALLOWLIST), not JSON.
     pack_paths: Annotated[list[str], NoDecode] = []
 

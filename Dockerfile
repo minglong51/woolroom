@@ -9,7 +9,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY pyproject.toml ./
+COPY pyproject.toml README.md LICENSE ./
 COPY packages/woolpack/pyproject.toml ./packages/woolpack/
 COPY packages/woolpack/src ./packages/woolpack/src
 RUN pip install --upgrade pip && pip install -e ./packages/woolpack -e .
@@ -18,8 +18,8 @@ ADD https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestre
 RUN dpkg -i /tmp/litestream.deb && rm /tmp/litestream.deb
 
 COPY app ./app
+COPY woolroom ./woolroom
 COPY alembic.ini ./alembic.ini
-COPY migrations ./migrations
 COPY scripts ./scripts
 COPY litestream.yml /etc/litestream.yml
 
