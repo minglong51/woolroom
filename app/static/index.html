@@ -761,7 +761,7 @@
            aria-labelledby="room-journal-title">
       <button class="drawer-close" @click="showMemory = false" aria-label="close">×</button>
       <h3 id="room-journal-title">the room journal</h3>
-      <p class="tiny muted journal-note">kept between the two of you — it doesn't leave this home.</p>
+      <p class="tiny muted journal-note">kept between the two of you — never shown to guests.</p>
       <p class="tiny muted" x-show="pet?.origin_line" x-text="pet?.origin_line"></p>
       <p class="tiny muted" x-show="memory">
         <span x-text="memory?.pet_name || 'the pet'"></span> has shared this room with you for
