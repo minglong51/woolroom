@@ -1098,7 +1098,7 @@ async def test_first_daily_action_uses_the_home_timezone_boundary(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    monkeypatch.setenv("HOME_TZ", "America/Los_Angeles")
+    monkeypatch.setenv("HOME_TZ", "Pacific/Honolulu")
     app = _load_app(tmp_path, monkeypatch)
 
     from datetime import UTC, datetime
@@ -1112,7 +1112,7 @@ async def test_first_daily_action_uses_the_home_timezone_boundary(
     monkeypatch.setattr(
         actions_module,
         "local_now",
-        lambda: datetime(2026, 9, 3, 0, 30, tzinfo=ZoneInfo("America/Los_Angeles")),
+        lambda: datetime(2026, 9, 3, 0, 30, tzinfo=ZoneInfo("Pacific/Honolulu")),
     )
 
     with TestClient(app) as client:
