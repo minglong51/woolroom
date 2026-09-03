@@ -191,9 +191,6 @@ export const figureMethods = {
     return `--dog-body:${p.body}; --dog-belly:${p.belly}; --dog-point:${p.point}`;
   },
   petPreviewSvg(species) {
-    // Landing + initial-adoption previews stay generic: there is no persisted
-    // pet subject whose private card could be requested. The singleton ids
-    // are removed because the hidden live room still owns them.
     return figureSvg(species || "cat", { visitor: true, packs: this.packs });
   },
   previewCoatStyle(species, coat) {

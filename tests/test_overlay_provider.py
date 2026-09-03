@@ -874,6 +874,72 @@ def test_client_caches_and_renders_private_cards_only_for_persisted_visible_pets
     assert payload["publicUnchanged"] is True
 
 
+def test_client_discards_a_card_response_from_an_earlier_auth_generation() -> None:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is required for the browser card contract")
+    repo_root = Path(__file__).parents[1]
+    api_uri = (repo_root / "app/static/js/api.js").as_uri()
+    script = f"""
+      import {{ apiMethods }} from {json.dumps(api_uri)};
+      const pet = {{ id: "same_pet", species: "cat", coat: "ash" }};
+      const oldCard = {{ card_id: "old_owner", species: "cat", coat: "ash" }};
+      const newCard = {{ card_id: "new_owner", species: "cat", coat: "ash" }};
+      let releaseOld;
+      let fetchCount = 0;
+      globalThis.fetch = async () => {{
+        fetchCount += 1;
+        if (fetchCount === 1) {{
+          return await new Promise((resolve) => {{
+            releaseOld = () => resolve({{
+              ok: true,
+              json: async () => ({{ card: oldCard }}),
+            }});
+          }});
+        }}
+        return {{ ok: true, json: async () => ({{ card: newCard }}) }};
+      }};
+      const context = {{
+        pet,
+        pets: [],
+        guest: false,
+        card: null,
+        petCardCache: {{}},
+        _cardLoads: new Set(),
+        _cardCacheGeneration: 0,
+        ...apiMethods,
+      }};
+      const oldLoad = context._refreshPetCard(pet);
+      context._resetPetCards();
+      const newLoad = context._refreshPetCard(pet);
+      await newLoad;
+      releaseOld();
+      await oldLoad;
+      console.log(JSON.stringify({{
+        card: context.card,
+        cacheCard: context.petCardCache.same_pet.card,
+        generation: context._cardCacheGeneration,
+        pendingLoads: context._cardLoads.size,
+        fetchCount,
+      }}));
+    """
+    result = subprocess.run(
+        [node, "--input-type=module", "-e", script],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == {
+        "card": {"card_id": "new_owner", "species": "cat", "coat": "ash"},
+        "cacheCard": {"card_id": "new_owner", "species": "cat", "coat": "ash"},
+        "generation": 1,
+        "pendingLoads": 0,
+        "fetchCount": 2,
+    }
+
+
 def test_client_refreshes_a_pet_scoped_card_when_realtime_changes_its_subject(
     tmp_path: Path,
 ) -> None:

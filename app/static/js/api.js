@@ -83,6 +83,7 @@ export const apiMethods = {
       this.petCardCache = {};
       this.card = null;
       this._cardLoads?.clear?.();
+      this._cardCacheGeneration = (this._cardCacheGeneration || 0) + 1;
       this._visitorArt = null;
     },
 
@@ -97,13 +98,14 @@ export const apiMethods = {
     async _refreshPetCard(pet, { force = false } = {}) {
       if (!pet?.id || !pet.species || !pet.coat) return null;
       const subject = { id: pet.id, species: pet.species, coat: pet.coat };
+      const generation = this._cardCacheGeneration || 0;
       if (!force) {
         const cached = this._petCardEntry(subject);
         if (cached) return cached.card;
       } else {
         this._invalidatePetCard(subject.id);
       }
-      const loadKey = `${subject.id}\u0000${subject.species}\u0000${subject.coat}`;
+      const loadKey = `${generation}\u0000${subject.id}\u0000${subject.species}\u0000${subject.coat}`;
       const loads = this._cardLoads || (this._cardLoads = new Set());
       if (loads.has(loadKey)) return null;
       loads.add(loadKey);
@@ -111,17 +113,25 @@ export const apiMethods = {
         const r = await fetch(`/api/card?pet=${encodeURIComponent(subject.id)}`, {
           credentials: "same-origin",
         });
+        if (generation !== (this._cardCacheGeneration || 0)) return null;
+        if (!r.ok) {
+          const current = this._cardSubjectForId(subject.id);
+          if (
+            !current
+            || current.species !== subject.species
+            || current.coat !== subject.coat
+          ) return null;
+          this._cachePetCard(current, null);
+          return null;
+        }
+        const data = await r.json();
+        if (generation !== (this._cardCacheGeneration || 0)) return null;
         const current = this._cardSubjectForId(subject.id);
         if (
           !current
           || current.species !== subject.species
           || current.coat !== subject.coat
         ) return null;
-        if (!r.ok) {
-          this._cachePetCard(current, null);
-          return null;
-        }
-        const data = await r.json();
         return this._cachePetCard(current, data.card || null);
       } catch (_) {
         return null;

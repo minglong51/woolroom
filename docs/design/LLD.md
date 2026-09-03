@@ -274,8 +274,10 @@ code is right and this doc is stale.
   public packs registry. Boot seeds the active entry, then fetches only a
   ceremony-pending pet and the current host-side visitor; room/coat/state
   changes select, invalidate, refill, or discard entries by exact
-  pet/species/coat subject. Boot also fetches the public adoption-default DTO
-  and seeds primary/secondary coat selection from it.
+  pet/species/coat subject. Auth-context resets advance a cache generation;
+  responses captured under an older generation cannot populate the new
+  context even when both users can see the same pet. Boot also fetches the
+  public adoption-default DTO and seeds primary/secondary coat selection from it.
 - `js/wool.js` — the scene core: boot, the light-not-dye clock, motion
   primitives and locomotion, touch resolution, presentation reads
   (traces, rig style, poses). A matching card supplies the active pet's
