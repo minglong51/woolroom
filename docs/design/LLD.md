@@ -422,19 +422,21 @@ code is right and this doc is stale.
   requires the tag version to match package metadata, and requires that SHA
   to be on `origin/main`. A read-only build job uses pinned release tooling to
   build, normalize, metadata-check, and clean-install both distributions. The
-  separate `pypi` environment job receives only those artifacts; only this
-  two-step job gets OIDC `id-token: write`, and the pinned PyPA publisher action
-  exchanges that identity for the short-lived upload credential. Before a retry,
-  exact hashes must describe a subset of the build; after upload, the public
-  release must be complete and hash-identical.
+  separate `pypi` environment job checks out the tagged verifier and downloads
+  only those artifacts; only this two-step job gets OIDC `id-token: write`, and
+  the pinned PyPA publisher action exchanges that identity for the short-lived
+  upload credential. Only the downloaded artifacts are uploaded. Before a
+  retry, exact hashes must describe a subset of the build; after upload, the
+  public release must be complete and hash-identical.
 - `.github/workflows/release-woolroom.yml` — distinct root trusted publishing
   for `woolroom-v<version>`. The read-only build validates tag/version/main
   ancestry, root/Woolpack parity, and availability of the matching Woolpack
   version on the public index; then it inspects and clean-installs both
   deterministic Woolroom artifacts with an exact locally built Woolpack wheel
   and exercises the installed CLI, app, and migrations. Only the resulting
-  Woolroom artifacts enter the `pypi-woolroom` OIDC publish job, with the same
-  hash-matching partial retry and complete-release verification.
+  Woolroom artifacts are downloaded by the `pypi-woolroom` OIDC publish job,
+  which also checks out the tagged verifier; only those artifacts are uploaded,
+  with the same hash-matching partial retry and complete-release verification.
 
 ## `packs/pebble/` — the shipped example pack
 

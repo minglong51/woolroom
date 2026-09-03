@@ -213,11 +213,13 @@ Woolroom and Woolpack keep the same package version, but publish through
 separate trusted workflows. Publish Woolpack first; a `woolroom-v<version>`
 GitHub release is accepted only when the tag matches root metadata, resolves to
 an `origin/main` ancestor, and the matching Woolpack version is already on the
-public package index. An existing Woolroom version is refused rather than
-republished. The workflow builds and inspects both Woolroom artifact formats,
-tests them beside an exact local Woolpack wheel, and gives only the
-environment-gated publish job an OIDC identity. Creating the workflow does not
-publish or bump the current version.
+public package index. An existing Woolroom release is accepted only when every
+present filename and hash matches the local build: an exact partial release can
+resume, an exact
+complete release is verified as-is, and any conflict is refused. The workflow
+builds and inspects both Woolroom artifact formats, tests them beside an exact
+local Woolpack wheel, and gives only the environment-gated publish job an OIDC
+identity. Creating the workflow does not publish or bump the current version.
 
 ## Status
 

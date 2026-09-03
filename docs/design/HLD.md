@@ -183,18 +183,21 @@ in-process.
   unknown mode is a loader error, never a silent no-op.
 - **Woolpack release boundary.** A dedicated GitHub release workflow builds
   wheel and source artifacts in a read-only job, verifies that the
-  `woolpack-v<version>` tag resolves to a commit on `main`, then passes only
-  deterministic artifacts to a two-step publish job. A retry accepts only an
-  exact hash-matching partial release, skips those immutable files, and verifies
-  that the completed public release matches the build. PyPI authentication is a
+  `woolpack-v<version>` tag resolves to a commit on `main`, then lets a two-step
+  publish job check out the tagged verifier and download the deterministic
+  artifacts. A retry accepts only an exact hash-matching partial release, skips
+  those immutable files, and verifies that the completed public release matches
+  the build. Only the artifacts are uploaded to PyPI. Authentication is a
   short-lived OIDC identity scoped to the reviewed `pypi` environment; no
   registry token is stored in the repository or GitHub.
 - **Woolroom release boundary.** A separate `woolroom-v<version>` workflow
   requires root/Woolpack version parity, a tag commit on `origin/main`, and the
   matching Woolpack version on the public package index before building. Wheel
   and source artifacts are inspected and installed beside an exact local
-  Woolpack wheel; only Woolroom artifacts cross into a distinct
-  `pypi-woolroom` OIDC environment, with the same exact-hash resume rule.
+  Woolpack wheel. The publish job checks out the tagged verifier and downloads
+  only the Woolroom artifacts; only those artifacts are uploaded to PyPI under
+  the distinct `pypi-woolroom` OIDC environment, with the same exact-hash resume
+  rule.
 
 ## Deployment
 
