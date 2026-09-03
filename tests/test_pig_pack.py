@@ -13,12 +13,11 @@ from app.data.quirks_catalog import QUIRKS
 from app.packs import LOADED_PACKS, PACK_ASSETS, client_pack_assets, load_pack
 from app.packs.lint import ERROR, WARN, lint_pack
 
-PIG_PACK = Path(__file__).parent.parent / "packs" / "pig"
-MOOD_CELLS = {
-    (arousal, valence)
-    for arousal in ("low", "med", "high")
-    for valence in ("grumpy", "neutral", "content")
-}
+PIG_PACK = Path(__file__).parent.parent / "app" / "packs" / "profiles" / "pig"
+MOOD_CELLS = set(bl.BODY_LANGUAGE)
+ACTION_IDS = set(bl.ACTION_LANGUAGE)
+SPOT_IDS = set(bl.PET_SPOT_LANGUAGE)
+TINY_VALENCES = set(bl.MESSAGE_TINY_UTTERANCES)
 
 
 @pytest.fixture(autouse=True)
@@ -79,18 +78,45 @@ def test_pig_overlay_has_no_cat_fallthrough_cells() -> None:
     overlay = bl.SPECIES_PHRASE_OVERLAYS["pig"]
 
     assert set(overlay["body"]) == MOOD_CELLS
-    assert set(overlay["action"]) == set(bl.ACTION_LANGUAGE)
+    assert set(overlay["action"]) == ACTION_IDS
     assert all(set(cells) == MOOD_CELLS for cells in overlay["action"].values())
-    assert set(overlay["spot"]) == set(bl.PET_SPOT_LANGUAGE)
+    assert set(overlay["spot"]) == SPOT_IDS
     assert all(set(cells) == MOOD_CELLS for cells in overlay["spot"].values())
-    assert set(overlay["tiny"]) == {"grumpy", "neutral", "content"}
+    assert set(overlay["tiny"]) == TINY_VALENCES
 
     pinned = len(overlay["body"])
     pinned += sum(len(cells) for cells in overlay["action"].values())
     pinned += sum(len(cells) for cells in overlay["spot"].values())
     pinned += len(overlay["tiny"])
-    expected = 9 + 9 * len(bl.ACTION_LANGUAGE) + 9 * len(bl.PET_SPOT_LANGUAGE) + 3
-    assert pinned == expected == 120
+    expected = len(MOOD_CELLS) * (1 + len(ACTION_IDS) + len(SPOT_IDS))
+    expected += len(TINY_VALENCES)
+    assert pinned == expected
+
+
+def test_pig_overlay_cells_have_varied_self_contained_language() -> None:
+    load_pack(PIG_PACK)
+    overlay = bl.SPECIES_PHRASE_OVERLAYS["pig"]
+
+    recurring_cells = list(overlay["body"].values())
+    recurring_cells.extend(
+        lines
+        for action_cells in overlay["action"].values()
+        for lines in action_cells.values()
+    )
+    recurring_cells.extend(
+        lines
+        for spot_cells in overlay["spot"].values()
+        for lines in spot_cells.values()
+    )
+
+    assert all(len(lines) >= 3 for lines in recurring_cells)
+    assert all(len(lines) == len(set(lines)) for lines in recurring_cells)
+    assert all(len(lines) >= 3 for lines in overlay["tiny"].values())
+    assert all(len(lines) == len(set(lines)) for lines in overlay["tiny"].values())
+    assert all(
+        any(not line.lstrip().startswith("*") for line in lines)
+        for lines in overlay["tiny"].values()
+    )
 
 
 def test_pig_phrase_and_figure_content_is_distribution_safe() -> None:
@@ -100,4 +126,6 @@ def test_pig_phrase_and_figure_content_is_distribution_safe() -> None:
     assert phrase_text == phrase_text.lower()
     assert "<!--" not in figure_text
     assert "<metadata" not in figure_text
+    assert 'class="breath"' not in figure_text
+    assert 'class="squishg"' not in figure_text
     assert figure_text.count('id="dog-eyes"') == 1
