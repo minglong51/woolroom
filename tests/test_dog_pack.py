@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -12,18 +13,15 @@ from app.data.quirks_catalog import QUIRKS
 from app.packs import LOADED_PACKS, PACK_ASSETS, client_pack_assets, load_pack
 from app.packs.lint import ERROR, WARN, lint_pack
 
-DOG_PACK = Path(__file__).parent.parent / "packs" / "dog"
-CELLS = {
-    (arousal, valence)
-    for arousal in ("low", "med", "high")
-    for valence in ("grumpy", "neutral", "content")
-}
-ACTIONS = {"call", "feed", "greet", "message", "pet", "play", "walk"}
-SPOTS = {"belly", "body", "ear", "head", "tail"}
+DOG_PACK = Path(__file__).parent.parent / "app" / "packs" / "profiles" / "dog"
+MOOD_CELLS = set(bl.BODY_LANGUAGE)
+ACTION_IDS = set(bl.ACTION_LANGUAGE)
+SPOT_IDS = set(bl.PET_SPOT_LANGUAGE)
+TINY_VALENCES = set(bl.MESSAGE_TINY_UTTERANCES)
 
 
 @pytest.fixture(autouse=True)
-def _restore_registries():
+def _restore_registries() -> Iterator[None]:
     snapshot = (
         copy.deepcopy(species_mod.SPECIES_REGISTRY),
         species_mod.SPECIES,
@@ -69,13 +67,28 @@ def test_dog_pack_registers_a_complete_public_profile() -> None:
     assert temperament["ignore_rate"] == 0.33
 
     overlay = bl.SPECIES_PHRASE_OVERLAYS["dog"]
-    assert set(overlay["body"]) == CELLS
-    assert set(overlay["action"]) == ACTIONS
-    assert all(set(cells) == CELLS for cells in overlay["action"].values())
-    assert set(overlay["spot"]) == SPOTS
-    assert all(set(cells) == CELLS for cells in overlay["spot"].values())
-    assert set(overlay["tiny"]) == {"grumpy", "neutral", "content"}
-    assert all(any(not line.startswith("*") for line in lines) for lines in overlay["tiny"].values())
+    assert set(overlay["body"]) == MOOD_CELLS
+    assert set(overlay["action"]) == ACTION_IDS
+    assert all(set(cells) == MOOD_CELLS for cells in overlay["action"].values())
+    assert set(overlay["spot"]) == SPOT_IDS
+    assert all(set(cells) == MOOD_CELLS for cells in overlay["spot"].values())
+    assert set(overlay["tiny"]) == TINY_VALENCES
+
+    mood_lines = list(overlay["body"].values())
+    mood_lines.extend(
+        lines for action in overlay["action"].values() for lines in action.values()
+    )
+    mood_lines.extend(
+        lines for spot in overlay["spot"].values() for lines in spot.values()
+    )
+    assert all(len(lines) >= 3 for lines in mood_lines)
+    assert all(len(lines) == len(set(lines)) for lines in mood_lines)
+    assert all(len(lines) >= 3 for lines in overlay["tiny"].values())
+    assert all(len(lines) == len(set(lines)) for lines in overlay["tiny"].values())
+    assert all(
+        any(not line.startswith("*") for line in lines)
+        for lines in overlay["tiny"].values()
+    )
 
 
 def test_dog_pack_exposes_generic_rig_assets() -> None:
@@ -92,5 +105,7 @@ def test_dog_pack_exposes_generic_rig_assets() -> None:
     assert set(dog["geometry"]) == {"earBelow", "headBelow", "tail", "belly"}
     assert dog["svg"] == PACK_ASSETS["dog"]["figure"]
     assert "<!--" not in dog["svg"]
-    assert "<title" not in dog["svg"]
-    assert "<desc" not in dog["svg"]
+    assert "<metadata" not in dog["svg"]
+    assert "data-private" not in dog["svg"]
+    assert "data-owner" not in dog["svg"]
+    assert "data-pet-id" not in dog["svg"]
