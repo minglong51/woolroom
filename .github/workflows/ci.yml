@@ -208,10 +208,12 @@ jobs:
           assert woolroom.create_app(auth_namespace=namespace).state.auth_namespace is namespace
           migration_dir = woolroom.migration_path()
           assert (migration_dir / "env.py").is_file()
-          inspection = woolroom.upgrade_database(__import__("os").environ["DATABASE_URL"])
+          db_path = Path(
+              __import__("os").environ["DATABASE_URL"].removeprefix("sqlite+aiosqlite:///")
+          )
+          inspection = woolroom.upgrade_sqlite_database(db_path)
           assert inspection.at_head
           assert inspection.current_revisions == (woolroom.migration_head(),)
-          db_path = Path(__import__("os").environ["DATABASE_URL"].removeprefix("sqlite+aiosqlite:///"))
           with sqlite3.connect(db_path) as connection:
               assert connection.execute("SELECT version_num FROM alembic_version").fetchone()
           app = woolroom.create_app(

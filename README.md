@@ -114,6 +114,18 @@ DATABASE_URL=sqlite+aiosqlite:///./woolroom.db woolroom-db inspect
 DATABASE_URL=sqlite+aiosqlite:///./woolroom.db woolroom-db upgrade
 ```
 
+Python callers holding a filesystem path do not need to construct or escape a
+SQLAlchemy URL. `upgrade_sqlite_database(path)` preserves literal `?` and `#`
+characters in the filename:
+
+```python
+from pathlib import Path
+
+from woolroom import upgrade_sqlite_database
+
+inspection = upgrade_sqlite_database(Path("./copied.db"))
+```
+
 A current Woolroom schema created without Alembic is never stamped
 automatically. Adoption first performs a read-only semantic comparison; the
 command is a dry run unless `--apply` is explicit:

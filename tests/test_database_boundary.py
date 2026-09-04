@@ -61,10 +61,35 @@ def test_database_boundary_is_part_of_the_public_distribution_api() -> None:
         "migration_head",
         "migration_revisions",
         "upgrade_database",
+        "upgrade_sqlite_database",
     }
 
     assert public_api <= set(woolroom.__all__)
     assert all(hasattr(woolroom, name) for name in public_api)
+
+
+def test_path_upgrade_mutates_the_exact_punctuation_filename(tmp_path: Path) -> None:
+    path = tmp_path / "copied?household#1.db"
+    path.touch()
+
+    inspection = woolroom.upgrade_sqlite_database(path)
+
+    assert inspection.at_head is True
+    assert path.stat().st_size > 0
+    with sqlite3.connect(path) as connection:
+        assert connection.execute(
+            "SELECT version_num FROM alembic_version"
+        ).fetchone() == (woolroom.migration_head(),)
+
+
+def test_path_upgrade_creates_no_url_truncated_sibling(tmp_path: Path) -> None:
+    path = tmp_path / "fresh?copy#2.db"
+
+    inspection = woolroom.upgrade_sqlite_database(str(path))
+
+    assert inspection.at_head is True
+    assert set(tmp_path.iterdir()) == {path}
+    assert not (tmp_path / "fresh").exists()
 
 
 def test_fresh_upgrade_is_idempotent_and_uses_packaged_head(tmp_path: Path) -> None:

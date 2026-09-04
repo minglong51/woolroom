@@ -1,6 +1,6 @@
 # woolroom — High-Level Design
 
-**Refreshed:** 2026-09-03 (private card, direct-hosting, and release boundaries)
+**Refreshed:** 2026-09-03 (path-safe database API and public boundaries)
 
 woolroom is a self-hostable shared ambient pet: one quiet animal in a small
 room, kept by two people. A rule-driven brain (mood drift, memory, seeded
@@ -106,8 +106,10 @@ in-process.
   provider lifecycle/subjects, the default empty provider, validated auth
   namespace, validated primary/secondary adoption defaults, packaged Alembic
   revisions, and the fail-closed SQLite inspection/upgrade/adoption API. A
-  trusted provider may own database access but receives only an authenticated
-  user's participating-pet subject or a guest-visible subject and returns one
+  filesystem-path upgrade entry point constructs its SQLAlchemy URL internally,
+  so URL punctuation in a copied database filename remains path data. A trusted
+  provider may own database access but receives only an authenticated user's
+  participating-pet subject or a guest-visible subject and returns one
   card-shaped projection; it never receives or mutates the public registries.
 - **Woolpack distribution** (`packages/woolpack/`) — standalone pack-format
   v1 validator, SVG sanitizer, authoring lint, static render board, and
@@ -121,6 +123,8 @@ in-process.
   installed Woolroom revision. A current versionless core schema crosses the
   boundary only through explicit, dry-run-first semantic adoption; extra
   plugin tables are outside the core fingerprint and remain untouched.
+  `upgrade_sqlite_database(path)` keeps literal `?` and `#` filename characters
+  out of SQLAlchemy URL parsing by constructing a structured URL.
   Once a trusted adopter writes a known revision, that marker is the semantic
   compatibility assertion; startup still checks SQLite integrity and core
   foreign keys but does not re-fingerprint deployment-specific historical DDL.
