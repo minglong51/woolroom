@@ -49,6 +49,7 @@ def test_public_distribution_api_is_exposed() -> None:
         "__version__",
         "create_app",
         "migration_path",
+        "upgrade_sqlite_database",
     }
 
     assert public_api <= set(woolroom.__all__)
@@ -58,7 +59,12 @@ def test_public_distribution_api_is_exposed() -> None:
     assert woolroom.PLUGIN_API_VERSION == 2
     assert callable(woolroom.create_app)
     assert callable(woolroom.migration_path)
+    assert callable(woolroom.upgrade_sqlite_database)
     assert get_type_hints(woolroom.create_app)["return"].__name__ == "FastAPI"
+    assert get_type_hints(woolroom.upgrade_sqlite_database) == {
+        "path": str | Path,
+        "return": woolroom.DatabaseInspection,
+    }
 
     namespace = woolroom.AuthNamespace(
         session_cookie="distribution_session",

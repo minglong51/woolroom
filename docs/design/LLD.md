@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-09-03 (0.3.0 parity and release boundaries)
+**Refreshed:** 2026-09-03 (0.3.1 path upgrade API and release parity)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -145,7 +145,7 @@ code is right and this doc is stale.
 
 ## `packages/woolpack/` — standalone pack contract and authoring wheel
 
-- `pyproject.toml` — independently buildable `woolpack` 0.3.0 distribution,
+- `pyproject.toml` — independently buildable `woolpack` 0.3.1 distribution,
   Python ≥3.11, with only PyYAML as a runtime dependency and console entry
   point `woolpack = woolpack.cli:main`. Its package README supplies the PyPI
   long description and links the owned product page, format guide, source,
@@ -311,9 +311,10 @@ code is right and this doc is stale.
   `PLUGIN_API_VERSION`, `create_app(overlay_provider=..., auth_namespace=...,
   adoption_defaults=...)`, `AdoptionDefaults`, `AuthNamespace`,
   `BoundPetCard`, provider types, database boundary types/functions, and
-  migration path/head/revision helpers for installed-wheel Alembic adoption.
-  The package's PEP 561 marker makes this composition surface typed for
-  consumers.
+  migration path/head/revision helpers for installed-wheel Alembic adoption,
+  including `upgrade_sqlite_database(path)` for callers that hold a filesystem
+  path rather than a SQLAlchemy URL. The package's PEP 561 marker makes this
+  composition surface typed for consumers.
 - `adoption.py` — frozen `AdoptionDefaults`: primary/secondary species and
   coat pairs, live-registry validation after pack loading, and the exact
   four-field public client projection.
@@ -334,9 +335,12 @@ code is right and this doc is stale.
   `inspect_database()` classifies empty, known-versioned, canonical
   versionless, and unsafe version states without writing. `upgrade_database()`
   permits only empty or exactly-one-known-revision inputs after SQLite
-  `quick_check` and core-table foreign-key checks. A known revision is the
-  semantic compatibility assertion; versioned provider histories are not
-  re-fingerprinted against one public DDL spelling.
+  `quick_check` and core-table foreign-key checks.
+  `upgrade_sqlite_database(path: str | Path)` delegates to the same boundary
+  through `URL.create`, preserving literal `?` and `#` filename characters
+  without making callers import SQLAlchemy. A known revision is the semantic
+  compatibility assertion; versioned provider histories are not re-fingerprinted
+  against one public DDL spelling.
   `adopt_database(..., apply=False)` compares a normalized core fingerprint
   and is dry-run-only until `apply=True` stamps the packaged head. The
   fingerprint sorts physical columns and ignores constraint/index/trigger
@@ -388,7 +392,7 @@ code is right and this doc is stale.
 
 - Root `pyproject.toml` — the application uses the PEP 639-capable
   pinned `setuptools==84.0.0` build backend and keeps its direct `PyYAML`
-  declaration, pins the compatible `woolpack==0.3.0`, packages `app.static`,
+  declaration, pins the compatible `woolpack==0.3.1`, packages `app.static`,
   the canonical dog/pig profile data under `app.packs`, and the public
   `woolroom` namespace, and declares
   `packages/woolpack` as a uv workspace member/source. `uv.lock` therefore

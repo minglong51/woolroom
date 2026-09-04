@@ -161,6 +161,10 @@ def migration_head() -> str:
 
 
 def inspect_database(database_url: str) -> DatabaseInspection:
+    return _inspect_database(database_url)
+
+
+def _inspect_database(database_url: str | URL) -> DatabaseInspection:
     path = _sqlite_path(database_url)
     head = migration_head()
     if not path.exists():
@@ -179,7 +183,19 @@ def inspect_database(database_url: str) -> DatabaseInspection:
 
 
 def upgrade_database(database_url: str) -> DatabaseInspection:
-    before = inspect_database(database_url)
+    return _upgrade_database(database_url)
+
+
+def upgrade_sqlite_database(path: str | Path) -> DatabaseInspection:
+    database_url = URL.create(
+        "sqlite+pysqlite",
+        database=str(Path(path).expanduser()),
+    )
+    return _upgrade_database(database_url)
+
+
+def _upgrade_database(database_url: str | URL) -> DatabaseInspection:
+    before = _inspect_database(database_url)
     if not before.can_upgrade:
         raise _refusal("upgrade", before)
 
@@ -207,7 +223,7 @@ def adopt_database(database_url: str, *, apply: bool = False) -> DatabaseInspect
 
 
 def _mutate_database(
-    database_url: str,
+    database_url: str | URL,
     *,
     allowed_states: set[DatabaseState],
     alembic_action: Callable[[Config], None],
@@ -231,7 +247,7 @@ def _mutate_database(
     finally:
         engine.dispose()
 
-    after = inspect_database(database_url)
+    after = _inspect_database(database_url)
     if after.state is not DatabaseState.VERSIONED or not after.at_head:
         raise DatabaseBoundaryError(
             f"database {action} did not reach the installed Woolroom migration head",
@@ -262,7 +278,7 @@ def _refusal(action: str, inspection: DatabaseInspection) -> DatabaseBoundaryErr
     return DatabaseBoundaryError(f"refusing database {action}: {remedy}", inspection=inspection)
 
 
-def _sqlite_path(database_url: str) -> Path:
+def _sqlite_path(database_url: str | URL) -> Path:
     try:
         parsed = make_url(database_url)
     except Exception as exc:
@@ -276,7 +292,7 @@ def _sqlite_path(database_url: str) -> Path:
     return Path(parsed.database).expanduser()
 
 
-def _sync_sqlite_url(database_url: str) -> URL:
+def _sync_sqlite_url(database_url: str | URL) -> URL:
     parsed = make_url(database_url)
     return parsed.set(drivername="sqlite+pysqlite", database=str(_sqlite_path(database_url)))
 

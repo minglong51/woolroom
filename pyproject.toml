@@ -1,6 +1,6 @@
 [project]
 name = "woolroom"
-version = "0.3.0"
+version = "0.3.1"
 description = "A shared ambient pet — one quiet animal in a small room, kept by two people."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -19,7 +19,7 @@ dependencies = [
     "itsdangerous>=2.2",
     "python-multipart>=0.0.9",
     "httpx>=0.27",
-    "woolpack==0.3.0",
+    "woolpack==0.3.1",
     "pyyaml>=6.0",
     "tzdata>=2024.1",
 ]

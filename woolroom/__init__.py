@@ -17,6 +17,7 @@ from woolroom.database import (
     migration_head,
     migration_revisions,
     upgrade_database,
+    upgrade_sqlite_database,
 )
 from woolroom.overlay import (
     PLUGIN_API_VERSION,
@@ -31,7 +32,7 @@ from woolroom.overlay import (
 try:
     __version__ = version("woolroom")
 except PackageNotFoundError:
-    __version__ = "0.3.0"
+    __version__ = "0.3.1"
 
 
 def create_app(
@@ -75,4 +76,5 @@ __all__ = [
     "migration_path",
     "migration_revisions",
     "upgrade_database",
+    "upgrade_sqlite_database",
 ]
