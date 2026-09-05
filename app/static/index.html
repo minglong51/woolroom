@@ -2,17 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>woolroom</title>
+  <title>{{SITE_NAME}}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
-  <meta property="og:title" content="woolroom">
-  <meta property="og:description" content="a quiet room, shared.">
+  <meta property="og:title" content="{{SITE_NAME}}">
+  <meta property="og:description" content="{{SITE_DESCRIPTION}}">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="/static/apple-touch-icon.png">
+  <meta property="og:image" content="/static/apple-touch-icon.png?v={{SITE_ASSET_VERSION}}">
   <meta name="twitter:card" content="summary">
-  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
-  <link rel="manifest" href="/static/manifest.json">
+  <link rel="icon" href="/static/favicon.svg?v={{SITE_ASSET_VERSION}}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v={{SITE_ASSET_VERSION}}">
+  <link rel="manifest" href="/static/manifest.json?v={{SITE_ASSET_VERSION}}">
   <link rel="stylesheet" href="/static/style.css">
   <!-- Preload the module graph: app.js's imports are only discoverable after
        app.js itself downloads, so without these hints the 8 modules wait a full
@@ -70,14 +70,14 @@
      once the view is known; the CSS animation is a escape hatch if JS never
      boots. -->
 <div id="boot-splash" aria-hidden="true">
-  <p class="bs-logo">woolroom</p>
-  <p class="bs-line">{{VOICE_TAGLINE}}</p>
+  <p class="bs-logo">{{SITE_NAME}}</p>
+  <p class="bs-line">{{SITE_DESCRIPTION}}</p>
 </div>
 
 <noscript>
   <div style="padding: 2rem; text-align: center; font-family: sans-serif;">
-    <h1>woolroom</h1>
-    <p>woolroom needs JavaScript to run. Enable JavaScript and refresh.</p>
+    <h1>{{SITE_NAME}}</h1>
+    <p>{{SITE_NAME}} needs JavaScript to run. Enable JavaScript and refresh.</p>
   </div>
 </noscript>
 
@@ -92,8 +92,8 @@
   <section class="landing-shell" x-show="view === 'landing'" x-cloak>
     <div class="landing-scene quiet-panel" aria-hidden="true">
       <p class="scene-kicker tiny muted">shared quiet</p>
-      <h1 class="logo landing-logo">woolroom</h1>
-      <p class="landing-line">{{VOICE_TAGLINE}}</p>
+      <h1 class="logo landing-logo">{{SITE_NAME}}</h1>
+      <p class="landing-line">{{SITE_DESCRIPTION}}</p>
       <div class="landing-room" :data-species="primaryAdoptionSpecies()"
            :data-coat="adoptionDefaults.primary.coat"
            :style="previewCoatStyle(primaryAdoptionSpecies(), adoptionDefaults.primary.coat)">
@@ -920,7 +920,7 @@
 
   <!-- Fresh-deploy pill: soft, never auto-reloads. -->
   <div class="fresh-version-pill" x-show="freshVersionAvailable" x-cloak x-transition>
-    <button @click="reloadForFreshVersion()">fresh woolroom — tap to refresh</button>
+    <button @click="reloadForFreshVersion()">fresh {{SITE_NAME}} — tap to refresh</button>
     <button class="dismiss" @click="freshVersionAvailable = false" aria-label="dismiss">×</button>
   </div>
 

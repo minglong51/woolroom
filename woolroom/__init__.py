@@ -19,6 +19,7 @@ from woolroom.database import (
     upgrade_database,
     upgrade_sqlite_database,
 )
+from woolroom.identity import DEFAULT_SITE_IDENTITY, SiteIdentity
 from woolroom.overlay import (
     PLUGIN_API_VERSION,
     BoundPetCard,
@@ -32,7 +33,7 @@ from woolroom.overlay import (
 try:
     __version__ = version("woolroom")
 except PackageNotFoundError:
-    __version__ = "0.3.1"
+    __version__ = "0.3.2"
 
 
 def create_app(
@@ -40,6 +41,7 @@ def create_app(
     overlay_provider: CatalogOverlayProvider | None = None,
     auth_namespace: AuthNamespace | None = None,
     adoption_defaults: AdoptionDefaults | None = None,
+    site_identity: SiteIdentity | None = None,
 ) -> FastAPI:
     from app.main import create_app as app_factory
 
@@ -47,6 +49,7 @@ def create_app(
         overlay_provider=overlay_provider,
         auth_namespace=auth_namespace,
         adoption_defaults=adoption_defaults,
+        site_identity=site_identity,
     )
 
 
@@ -56,6 +59,7 @@ def migration_path() -> Path:
 
 __all__ = [
     "DEFAULT_AUTH_NAMESPACE",
+    "DEFAULT_SITE_IDENTITY",
     "PLUGIN_API_VERSION",
     "AdoptionDefaults",
     "AuthNamespace",
@@ -68,6 +72,7 @@ __all__ = [
     "EmptyCatalogOverlayProvider",
     "GuestCardSubject",
     "OwnerCardSubject",
+    "SiteIdentity",
     "__version__",
     "adopt_database",
     "create_app",

@@ -1,6 +1,6 @@
 # woolroom — Low-Level Design
 
-**Refreshed:** 2026-09-03 (0.3.1 path upgrade API and release parity)
+**Refreshed:** 2026-09-04 (site identity composition boundary)
 
 Module-level contract for the public tree. Companion to
 [docs/design/HLD.md](HLD.md); pack format details live in
@@ -22,9 +22,13 @@ code is right and this doc is stale.
   Prod validators: strong secret required, only metered `sk-ant-api` keys,
   guest mode requires a pinned pet.
 - `main.py` — FastAPI entry. `create_app(overlay_provider=...,
-  auth_namespace=..., adoption_defaults=...)` installs the trusted provider
-  or a default empty provider and stores the validated auth namespace and
-  adoption identities on app state. Lifespan: provider startup/shutdown around
+  auth_namespace=..., adoption_defaults=..., site_identity=...)` installs the
+  trusted provider or a default empty provider and stores the validated auth
+  namespace, adoption identities, and immutable display identity on app state.
+  Identity text is HTML-escaped into the index/access templates; a custom
+  identity generates its manifest and, when supplied as a matched pair,
+  intercepts only the favicon and Apple-touch icon paths before the static
+  mount. Lifespan: provider startup/shutdown around
   the app resources; idempotent core dog/pig profile loading followed by
   `load_packs(settings.pack_paths)`, then adoption-default validation against
   the live registry (fail-closed; boot refuses on gate violations), boot refusal when
@@ -145,7 +149,7 @@ code is right and this doc is stale.
 
 ## `packages/woolpack/` — standalone pack contract and authoring wheel
 
-- `pyproject.toml` — independently buildable `woolpack` 0.3.1 distribution,
+- `pyproject.toml` — independently buildable `woolpack` 0.3.2 distribution,
   Python ≥3.11, with only PyYAML as a runtime dependency and console entry
   point `woolpack = woolpack.cli:main`. Its package README supplies the PyPI
   long description and links the owned product page, format guide, source,
@@ -309,7 +313,8 @@ code is right and this doc is stale.
 
 - `__init__.py` — stable consumer import: package version,
   `PLUGIN_API_VERSION`, `create_app(overlay_provider=..., auth_namespace=...,
-  adoption_defaults=...)`, `AdoptionDefaults`, `AuthNamespace`,
+  adoption_defaults=..., site_identity=...)`, `AdoptionDefaults`,
+  `AuthNamespace`, `SiteIdentity`,
   `BoundPetCard`, provider types, database boundary types/functions, and
   migration path/head/revision helpers for installed-wheel Alembic adoption,
   including `upgrade_sqlite_database(path)` for callers that hold a filesystem
@@ -322,6 +327,13 @@ code is right and this doc is stale.
   and pending-invite flows. Values are bounded safe ASCII; cookie names and
   signing salts must each be pairwise distinct. `DEFAULT_AUTH_NAMESPACE`
   pins direct-hosting behavior.
+- `identity.py` — frozen `SiteIdentity` and direct-hosting default. It validates
+  bounded control-free display strings, requires custom SVG/PNG icons as a
+  pair, requires Woolpack's inert SVG allowlist to preserve the SVG exactly,
+  validates PNG format and asset sizes, and derives an identity content key.
+  The host combines that key with its core asset version before issuing
+  immutable icon and manifest URLs, so either side of the overlay can safely
+  change. It accepts neither active SVG/raw HTML nor arbitrary asset paths.
 - `overlay.py` — narrow immutable owner/guest subjects, async provider
   lifecycle/protocol, empty direct-hosting implementation, and the
   parse-again subject-binding boundary. Providers return `BoundPetCard`; core
@@ -392,7 +404,7 @@ code is right and this doc is stale.
 
 - Root `pyproject.toml` — the application uses the PEP 639-capable
   pinned `setuptools==84.0.0` build backend and keeps its direct `PyYAML`
-  declaration, pins the compatible `woolpack==0.3.1`, packages `app.static`,
+  declaration, pins the compatible `woolpack==0.3.2`, packages `app.static`,
   the canonical dog/pig profile data under `app.packs`, and the public
   `woolroom` namespace, and declares
   `packages/woolpack` as a uv workspace member/source. `uv.lock` therefore

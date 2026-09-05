@@ -38,6 +38,7 @@ def test_public_distribution_api_is_exposed() -> None:
     public_api = {
         "AdoptionDefaults",
         "DEFAULT_AUTH_NAMESPACE",
+        "DEFAULT_SITE_IDENTITY",
         "PLUGIN_API_VERSION",
         "AuthNamespace",
         "BoundPetCard",
@@ -46,6 +47,7 @@ def test_public_distribution_api_is_exposed() -> None:
         "EmptyCatalogOverlayProvider",
         "GuestCardSubject",
         "OwnerCardSubject",
+        "SiteIdentity",
         "__version__",
         "create_app",
         "migration_path",
@@ -76,6 +78,8 @@ def test_public_distribution_api_is_exposed() -> None:
         pending_invite_cookie="distribution_pending",
     )
     assert woolroom.create_app(auth_namespace=namespace).state.auth_namespace is namespace
+    identity = woolroom.SiteIdentity(name="hosted woolroom")
+    assert woolroom.create_app(site_identity=identity).state.site_identity is identity
 
 
 def test_workspace_distribution_version_matches_pyproject() -> None:

@@ -1,6 +1,6 @@
 # woolroom — High-Level Design
 
-**Refreshed:** 2026-09-03 (path-safe database API and public boundaries)
+**Refreshed:** 2026-09-04 (site identity composition boundary)
 
 woolroom is a self-hostable shared ambient pet: one quiet animal in a small
 room, kept by two people. A rule-driven brain (mood drift, memory, seeded
@@ -21,10 +21,12 @@ engine vocabulary as a `PackEnvironment`, then registers the validated data
 through its thin runtime adapter. The root wheel exposes the stable
 `woolroom.create_app()` composition API, packages the browser and Alembic
 resources, and accepts one trusted `CatalogOverlayProvider`, an optional
-`AuthNamespace`, and validated `AdoptionDefaults`. Stock direct hosting uses
-the empty provider, Woolroom cookie namespace, and cat/cat defaults; a private
-consumer can preserve existing signed-cookie names and salts, select its two
-public species, and install an adapter without copying the core application.
+`AuthNamespace`, validated `AdoptionDefaults`, and an immutable `SiteIdentity`.
+Stock direct hosting uses the empty provider, Woolroom identity and cookie
+namespace, and cat/cat defaults; a private consumer can preserve existing
+signed-cookie names and salts, select its two public species, provide bounded
+display copy and fixed icon bytes, and install an adapter without copying the
+core application.
 
 ## Architecture
 
@@ -104,8 +106,13 @@ in-process.
   pack asset is static, guest-readable distribution content.
 - **Composition API** (`woolroom/`) — stable public import surface,
   provider lifecycle/subjects, the default empty provider, validated auth
-  namespace, validated primary/secondary adoption defaults, packaged Alembic
-  revisions, and the fail-closed SQLite inspection/upgrade/adoption API. A
+  namespace, validated primary/secondary adoption defaults, immutable site
+  identity, packaged Alembic revisions, and the fail-closed SQLite
+  inspection/upgrade/adoption API. Site identity is synchronous deployment
+  metadata, separate from the async card provider: bounded plain text is
+  escaped into owned templates, and optional SVG/PNG bytes replace only fixed
+  favicon, Apple-touch, and generated-manifest slots. SVG is accepted only when
+  Woolpack's inert element and attribute allowlist would preserve it exactly. A
   filesystem-path upgrade entry point constructs its SQLAlchemy URL internally,
   so URL punctuation in a copied database filename remains path data. A trusted
   provider may own database access but receives only an authenticated user's

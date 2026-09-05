@@ -23,7 +23,7 @@ Run the same pinned Woolpack release as the community index and paste the full
 output. This does not require a Woolroom checkout:
 
 ```sh
-uvx --from 'woolpack==0.3.1' woolpack lint <pack-dir> --strict
+uvx --from 'woolpack==0.3.2' woolpack lint <pack-dir> --strict
 ```
 
 ```
@@ -34,7 +34,7 @@ uvx --from 'woolpack==0.3.1' woolpack lint <pack-dir> --strict
 Run:
 
 ```sh
-uvx --from 'woolpack==0.3.1' woolpack render <pack-dir> -o <pack-name>-board.html
+uvx --from 'woolpack==0.3.2' woolpack render <pack-dir> -o <pack-name>-board.html
 ```
 
 Then confirm every coat in every pose and the hitbox overlay against your art.

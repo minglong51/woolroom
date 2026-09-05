@@ -156,6 +156,11 @@ Python consumers use the same boundary through
 `woolroom.create_app(adoption_defaults=AdoptionDefaults(...))`; trusted private
 cards and database lookups remain a separate provider concern.
 
+Hosted consumers can also pass a `SiteIdentity` to set the deployment name,
+description, access-page copy, and a matched SVG/PNG icon pair. Woolroom escapes
+all text and serves the fixed icon slots; consumers provide data, not templates
+or filesystem mounts.
+
 ### Guest visits
 
 A deployment can open a read-only window on its room: set
