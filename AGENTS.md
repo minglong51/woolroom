@@ -112,11 +112,11 @@ tests/       -> none
 .github/     -> none
 ```
 
-`python3 tests/test_design_docs.py` reports drift: per doc, the modules
+`.venv/bin/python tests/test_design_docs.py` reports drift: per doc, the modules
 added or removed under its owned paths since that doc last changed (test
 files excluded). The pytest asserts the map is structurally sound; it
 deliberately does **not** fail on drift — a doc gate that blocks merges buys
 rubber-stamp edits, not maintained docs. Before the first commit exists the
 drift report has no history to diff and skips itself; the structural
-assertions still run. `python3 tests/test_design_docs.py --audit` lists
+assertions still run. `.venv/bin/python tests/test_design_docs.py --audit` lists
 tracked modules named in no design doc.
