@@ -1186,7 +1186,7 @@ wheels = [
 
 [[package]]
 name = "woolpack"
-version = "0.3.1"
+version = "0.3.2"
 source = { editable = "packages/woolpack" }
 dependencies = [
     { name = "pyyaml" },
@@ -1197,7 +1197,7 @@ requires-dist = [{ name = "pyyaml", specifier = ">=6.0" }]
 
 [[package]]
 name = "woolroom"
-version = "0.3.1"
+version = "0.3.2"
 source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },

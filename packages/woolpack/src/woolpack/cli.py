@@ -10,7 +10,7 @@ def _package_version() -> str:
     try:
         return version("woolpack")
     except PackageNotFoundError:
-        return "0.3.1"
+        return "0.3.2"
 
 
 def main(argv: list[str] | None = None) -> int:

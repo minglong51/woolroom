@@ -149,7 +149,7 @@ code is right and this doc is stale.
 
 ## `packages/woolpack/` — standalone pack contract and authoring wheel
 
-- `pyproject.toml` — independently buildable `woolpack` 0.3.1 distribution,
+- `pyproject.toml` — independently buildable `woolpack` 0.3.2 distribution,
   Python ≥3.11, with only PyYAML as a runtime dependency and console entry
   point `woolpack = woolpack.cli:main`. Its package README supplies the PyPI
   long description and links the owned product page, format guide, source,
@@ -404,7 +404,7 @@ code is right and this doc is stale.
 
 - Root `pyproject.toml` — the application uses the PEP 639-capable
   pinned `setuptools==84.0.0` build backend and keeps its direct `PyYAML`
-  declaration, pins the compatible `woolpack==0.3.1`, packages `app.static`,
+  declaration, pins the compatible `woolpack==0.3.2`, packages `app.static`,
   the canonical dog/pig profile data under `app.packs`, and the public
   `woolroom` namespace, and declares
   `packages/woolpack` as a uv workspace member/source. `uv.lock` therefore
