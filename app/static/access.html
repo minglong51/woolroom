@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>woolroom access</title>
+  <title>{{SITE_NAME}} access</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <meta property="og:title" content="woolroom">
-  <meta property="og:description" content="a quiet room, shared.">
+  <meta property="og:title" content="{{SITE_NAME}}">
+  <meta property="og:description" content="{{SITE_DESCRIPTION}}">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
   <link rel="stylesheet" href="/static/style.css">
@@ -32,16 +32,16 @@
 
     <div class="access-threshold">
       <div class="access-copy">
-        <p class="tiny muted access-kicker">woolroom · self-hosted here</p>
-        <h1 class="logo access-logo">woolroom</h1>
-        <p class="access-note">a quiet room, shared.</p>
+        <p class="tiny muted access-kicker">{{SITE_NAME}} · self-hosted here</p>
+        <h1 class="logo access-logo">{{SITE_ACCESS_HEADING}}</h1>
+        <p class="access-note">{{SITE_ACCESS_NOTE}}</p>
       </div>
 
       <div class="access-guest">
         <p class="access-guest-lede">the room is awake. the window is open.</p>
         <button id="guest-button" class="ghost access-guest-button" type="button"
-                aria-describedby="guest-description">watch the room</button>
-        <p id="guest-description" class="tiny muted access-guest-privacy">read-only · no sign-in · the public demo · nothing you do changes the room</p>
+                aria-describedby="guest-description">{{SITE_GUEST_ENTRY_LABEL}}</button>
+        <p id="guest-description" class="tiny muted access-guest-privacy">{{SITE_GUEST_DISCLOSURE}}</p>
         <p id="guest-status" class="tiny muted access-guest-status" role="status" aria-live="polite"></p>
       </div>
 

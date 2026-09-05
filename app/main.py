@@ -7,6 +7,7 @@ import os
 import re
 from collections import deque
 from contextlib import asynccontextmanager
+from html import escape
 from pathlib import Path
 from time import monotonic
 from urllib.parse import parse_qs, quote, urlsplit
@@ -40,6 +41,7 @@ from app.storage.db import engine
 from app.storage.models import Base
 from woolroom.adoption import AdoptionDefaults
 from woolroom.auth import DEFAULT_AUTH_NAMESPACE, AuthNamespace
+from woolroom.identity import DEFAULT_SITE_IDENTITY, SiteIdentity
 from woolroom.overlay import CatalogOverlayProvider, EmptyCatalogOverlayProvider
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -280,8 +282,11 @@ def create_app(
     overlay_provider: CatalogOverlayProvider | None = None,
     auth_namespace: AuthNamespace | None = None,
     adoption_defaults: AdoptionDefaults | None = None,
+    site_identity: SiteIdentity | None = None,
 ) -> FastAPI:
-    app = FastAPI(title="woolroom", lifespan=lifespan)
+    identity = site_identity if site_identity is not None else DEFAULT_SITE_IDENTITY
+    site_asset_version = f"{APP_VERSION}-{identity.asset_version}"
+    app = FastAPI(title=identity.name, lifespan=lifespan)
     app.state.auth_failures = {}
     app.state.auth_namespace = (
         auth_namespace if auth_namespace is not None else DEFAULT_AUTH_NAMESPACE
@@ -292,6 +297,8 @@ def create_app(
     app.state.adoption_defaults = (
         adoption_defaults if adoption_defaults is not None else settings.adoption_defaults
     )
+    app.state.site_identity = identity
+    app.state.site_asset_version = site_asset_version
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
@@ -378,9 +385,100 @@ def create_app(
             response = await super().get_response(path, scope)
             qs = parse_qs(scope.get("query_string", b"").decode())
             response.headers["Cache-Control"] = (
-                _IMMUTABLE if qs.get("v") == [APP_VERSION] else _REVALIDATE
+                _IMMUTABLE
+                if qs.get("v") in ([APP_VERSION], [site_asset_version])
+                else _REVALIDATE
             )
             return response
+
+    if identity != DEFAULT_SITE_IDENTITY:
+        manifest_icons = (
+            [
+                {
+                    "src": f"/static/apple-touch-icon.png?v={site_asset_version}",
+                    "sizes": "180x180",
+                    "type": "image/png",
+                },
+                {
+                    "src": f"/static/favicon.svg?v={site_asset_version}",
+                    "sizes": "any",
+                    "type": "image/svg+xml",
+                },
+            ]
+            if identity.favicon_svg is not None
+            else [
+                {
+                    "src": f"/static/apple-touch-icon.png?v={site_asset_version}",
+                    "sizes": "180x180",
+                    "type": "image/png",
+                },
+                {
+                    "src": f"/static/icon-192.png?v={site_asset_version}",
+                    "sizes": "192x192",
+                    "type": "image/png",
+                },
+                {
+                    "src": f"/static/icon-512.png?v={site_asset_version}",
+                    "sizes": "512x512",
+                    "type": "image/png",
+                },
+                {
+                    "src": f"/static/icon-512-maskable.png?v={site_asset_version}",
+                    "sizes": "512x512",
+                    "type": "image/png",
+                    "purpose": "maskable",
+                },
+                {
+                    "src": f"/static/favicon.svg?v={site_asset_version}",
+                    "sizes": "any",
+                    "type": "image/svg+xml",
+                },
+            ]
+        )
+
+        def _identity_cache_control(request: Request) -> str:
+            return (
+                _IMMUTABLE
+                if request.query_params.getlist("v") == [site_asset_version]
+                else _REVALIDATE
+            )
+
+        @app.get("/static/manifest.json", include_in_schema=False)
+        async def site_manifest(request: Request) -> JSONResponse:
+            response = JSONResponse(
+                {
+                    "name": identity.name,
+                    "short_name": identity.name,
+                    "description": identity.description,
+                    "start_url": "/",
+                    "scope": "/",
+                    "display": "standalone",
+                    "background_color": "#efe8d8",
+                    "theme_color": "#efe8d8",
+                    "icons": manifest_icons,
+                },
+                media_type="application/manifest+json",
+            )
+            response.headers["Cache-Control"] = _identity_cache_control(request)
+            return response
+
+        if identity.favicon_svg is not None:
+
+            @app.get("/static/favicon.svg", include_in_schema=False)
+            async def site_favicon(request: Request) -> Response:
+                return Response(
+                    content=identity.favicon_svg,
+                    media_type="image/svg+xml",
+                    headers={"Cache-Control": _identity_cache_control(request)},
+                )
+
+            @app.get("/static/apple-touch-icon.png", include_in_schema=False)
+            async def site_apple_touch_icon(request: Request) -> Response:
+                return Response(
+                    content=identity.apple_touch_icon_png,
+                    media_type="image/png",
+                    headers={"Cache-Control": _identity_cache_control(request)},
+                )
 
     app.mount("/static", RevalidatingStaticFiles(directory=str(STATIC_DIR)), name="static")
 
@@ -394,6 +492,28 @@ def create_app(
     # href/src/content attributes get ?v=<version> appended; the import map
     # carries __APP_VERSION__ tokens (attribute-scoped regex must NOT touch
     # it — mapped keys have to stay exact resolved URLs).
+    def _render_site_identity(html: str) -> str:
+        values = {
+            "NAME": identity.name,
+            "DESCRIPTION": identity.description,
+            "ACCESS_HEADING": identity.resolved_access_heading,
+            "ACCESS_NOTE": identity.resolved_access_note,
+            "GUEST_ENTRY_LABEL": identity.guest_entry_label,
+            "GUEST_DISCLOSURE": identity.guest_disclosure,
+            "ASSET_VERSION": site_asset_version,
+        }
+
+        def replace_identity(match: re.Match[str]) -> str:
+            key = match.group(1)
+            if key not in values:
+                raise RuntimeError(f"static HTML carries unknown site-identity placeholder {key}")
+            return escape(values[key], quote=True)
+
+        pattern = re.compile(r"\{\{SITE_([A-Z_]+)\}\}")
+        if "{{SITE_" in pattern.sub("", html):
+            raise RuntimeError("static HTML carries a malformed site-identity placeholder")
+        return pattern.sub(replace_identity, html)
+
     def _versioned_index_html() -> str:
         html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
         for key, value in INDEX_VOICE.items():
@@ -405,7 +525,7 @@ def create_app(
             lambda m: f"{m.group(1)}{m.group(2)}?v={APP_VERSION}{m.group(3)}",
             html,
         )
-        return html.replace("__APP_VERSION__", APP_VERSION)
+        return _render_site_identity(html.replace("__APP_VERSION__", APP_VERSION))
 
     _INDEX_HTML = _versioned_index_html()
     _ACCESS_HTML = (STATIC_DIR / "access.html").read_text(encoding="utf-8")
@@ -425,9 +545,11 @@ def create_app(
                 url=_safe_access_next(next_value), status_code=303
             )
         resp = Response(
-            content=_ACCESS_HTML.replace(
-                "__GUEST_OPEN__",
-                "true" if guest_access_enabled() else "false",
+            content=_render_site_identity(
+                _ACCESS_HTML.replace(
+                    "__GUEST_OPEN__",
+                    "true" if guest_access_enabled() else "false",
+                )
             ),
             media_type="text/html",
         )

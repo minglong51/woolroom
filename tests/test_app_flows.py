@@ -180,9 +180,9 @@ def test_invite_link_303_body_carries_og_tags(tmp_path: Path, monkeypatch) -> No
         assert joined.status_code == 303
         assert joined.headers["location"] == "/"
         body = joined.text
-        assert "og:title" in body and "Purl" in body
+        assert "og:title' content='you&#x27;re invited to meet Purl'" in body
         assert "og:description" in body
-        assert "og:image' content='http://testserver/static/apple-touch-icon.png" in body
+        assert "og:image' content='http://testserver/static/apple-touch-icon.png?v=" in body
         assert "twitter:card' content='summary" in body
 
 

@@ -185,13 +185,23 @@ def _join_og_page(request: Request, pet_name: str | None) -> str:
     # never render it; link unfurlers (iMessage & friends) read the OG tags
     # here or at the redirect target. The pet's name is the one personal
     # detail an invite already shows on the landing page, so it can be here.
-    title = f"you're invited to meet {_html.escape(pet_name)}" if pet_name else "woolroom"
-    image = _html.escape(_absolute_url(request, "/static/apple-touch-icon.png"))
+    identity = request.app.state.site_identity
+    site_name = _html.escape(identity.name, quote=True)
+    description = _html.escape(identity.description, quote=True)
+    raw_title = f"you're invited to meet {pet_name}" if pet_name else identity.name
+    title = _html.escape(raw_title, quote=True)
+    image = _html.escape(
+        _absolute_url(
+            request,
+            f"/static/apple-touch-icon.png?v={request.app.state.site_asset_version}",
+        ),
+        quote=True,
+    )
     return (
         "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
-        "<title>woolroom</title>"
+        f"<title>{site_name}</title>"
         f"<meta property='og:title' content='{title}'>"
-        "<meta property='og:description' content='a quiet room, shared.'>"
+        f"<meta property='og:description' content='{description}'>"
         "<meta property='og:type' content='website'>"
         f"<meta property='og:image' content='{image}'>"
         "<meta name='twitter:card' content='summary'>"
@@ -1026,7 +1036,7 @@ async def join_pending(
 
 _RECOVERY_CONFLICT_HTML = """<!doctype html>
 <html lang='en'><head><meta charset='utf-8'>
-<title>woolroom — recovery link</title>
+<title>{{SITE_NAME}} — recovery link</title>
 <style>
   body { font: 16px/1.5 ui-rounded, -apple-system, system-ui, sans-serif;
     color: #3a3127; background: #f7f0e3; padding: 40px 24px;
@@ -1054,7 +1064,11 @@ async def recover(
     if not user:
         raise HTTPException(status_code=404, detail="recovery link invalid")
     if existing is not None and existing.id != user.id:
-        return HTMLResponse(status_code=409, content=_RECOVERY_CONFLICT_HTML)
+        site_name = _html.escape(request.app.state.site_identity.name, quote=True)
+        return HTMLResponse(
+            status_code=409,
+            content=_RECOVERY_CONFLICT_HTML.replace("{{SITE_NAME}}", site_name),
+        )
     redirect = RedirectResponse(url="/", status_code=303)
     redirect.headers["Referrer-Policy"] = "no-referrer"
     if existing is None:
