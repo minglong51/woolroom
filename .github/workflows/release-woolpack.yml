@@ -123,7 +123,7 @@ jobs:
             "$woolpack" lint "$smoke_root/releasepet" --strict
           done
       - name: Store release artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: woolpack-${{ steps.package.outputs.version }}
           path: dist/
